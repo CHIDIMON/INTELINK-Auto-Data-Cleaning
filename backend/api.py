@@ -50,7 +50,7 @@ db_config = {
 ADMIN_SECRET_KEY = "MY_SECRET_1234"
 
 # 🔴 ใส่ Gemini Key ของคุณที่นี่
-GEMINI_API_KEY = "AIzaSyBH3Ttp42sUVbpHoOhSaZ4p-ACM9WIG34U" 
+GEMINI_API_KEY = "GEMINI_API_KEY" 
 genai.configure(api_key=GEMINI_API_KEY)
 
 # ==========================================
