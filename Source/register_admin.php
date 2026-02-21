@@ -1,3 +1,4 @@
+// register_admin.php
 <!DOCTYPE html>
 <html lang="th">
 <head>

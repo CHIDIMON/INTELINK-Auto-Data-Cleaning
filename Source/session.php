@@ -1,3 +1,4 @@
+// session.php
 <?php
 // ตั้งค่า Session Timeout เป็น 3 ชั่วโมง (10800 วินาที)
 ini_set('session.gc_maxlifetime', 10800);

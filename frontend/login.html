@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+<div class="login-container">
+    <div class="brand-side">
+        <div class="circle c1"></div>
+        <div class="circle c2"></div>
+        <div class="brand-content">
+            <h1 class="fw-bold brand-font display-4 mb-2">SmartClean AI</h1>
+            <p class="fs-5 opacity-75">Automated Data Cleaning & ML</p>
+        </div>
+    </div>
+    <div class="form-side">
+        <div class="login-card">
+            <h2 class="fw-bold text-center mb-4">Welcome Back</h2>
+            <form onsubmit="handleLogin(event)">
+                <input type="email" id="email" class="form-control mb-3" placeholder="Email Address" required>
+                <input type="password" id="password" class="form-control mb-4" placeholder="Password" required>
+                <button type="submit" class="btn btn-primary-gradient w-100 mb-3">Sign In</button>
+                <div class="text-center"><a href="register.html" class="text-primary text-decoration-none">Create an account</a></div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    async function handleLogin(e) {
+        e.preventDefault();
+        const btn = document.querySelector('button');
+        btn.innerHTML = "Checking..."; btn.disabled = true;
+
+        const res = await fetch("http://127.0.0.1:8000/login", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: document.getElementById('email').value, password: document.getElementById('password').value })
+        });
+        const data = await res.json();
+
+        if (data.status === "success") {
+            localStorage.setItem('user', JSON.stringify(data));
+            window.location.href = "index.html";
+        } else {
+            alert(data.message);
+            btn.innerHTML = "Sign In"; btn.disabled = false;
+        }
+    }
+</script>
+</body>
+</html>

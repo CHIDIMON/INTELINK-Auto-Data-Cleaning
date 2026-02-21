@@ -1,3 +1,4 @@
+// index.php
 <?php
 // 1. เริ่ม Session
 require_once 'session.php'; 

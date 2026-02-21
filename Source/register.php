@@ -1,3 +1,4 @@
+// register.php
 <!DOCTYPE html>
 <html lang="th">
 <head>

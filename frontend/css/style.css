@@ -1,0 +1,88 @@
+:root {
+    --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    --primary-color: #6366f1;
+    --ml-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --bg-color: #f8fafc;
+    --text-main: #334155;
+    --sidebar-width: 320px;
+}
+
+body {
+    font-family: 'Sarabun', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, .brand-font { font-family: 'Outfit', sans-serif; }
+
+.dashboard-container { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+    width: var(--sidebar-width);
+    background: #ffffff;
+    border-right: 1px solid #e2e8f0;
+    padding: 2rem;
+    position: fixed; 
+    height: 100vh; 
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.02);
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content {
+    flex: 1;
+    margin-left: var(--sidebar-width);
+    padding: 2rem 3rem;
+    max-width: 1600px;
+}
+
+/* Cards */
+.card-modern {
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 20px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+.card-modern:hover { 
+    transform: translateY(-4px); 
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+    border-color: #cbd5e1;
+}
+
+/* Buttons */
+.btn-ai {
+    background: var(--primary-gradient);
+    border: none; color: white; padding: 14px 24px;
+    border-radius: 12px; font-weight: 600; width: 100%;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-ai:hover { opacity: 0.95; transform: scale(1.02); color: white; box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3); }
+
+.upload-area {
+    border: 2px dashed #cbd5e1;
+    border-radius: 16px; padding: 40px 20px;
+    text-align: center; cursor: pointer; transition: 0.3s; background: #f1f5f9;
+}
+.upload-area:hover { border-color: var(--primary-color); background: #e0e7ff; color: var(--primary-color); }
+
+.console-log {
+    background: #0f172a; color: #38bdf8; border-radius: 12px; padding: 20px;
+    font-family: 'Courier New', monospace; font-size: 0.85rem; height: 150px; overflow-y: auto;
+}
+
+.pro-badge {
+    background: linear-gradient(45deg, #FFD700, #FFA500);
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+@media (max-width: 992px) {
+    .sidebar { position: relative; width: 100%; height: auto; border-right: none; }
+    .main-content { margin-left: 0; padding: 1.5rem; }
+    .dashboard-container { flex-direction: column; }
+}

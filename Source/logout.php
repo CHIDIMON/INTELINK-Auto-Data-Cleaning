@@ -1,3 +1,4 @@
+// logout.php
 <?php
 // 1. ต้องประกาศ session_start() ก่อนเสมอ ไม่งั้นจะลบไม่ได้!
 session_start();
