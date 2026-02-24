@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart AI Data Cleaner & AutoML</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Sarabun:wght@300;400;600&display=swap"
+        rel="stylesheet">
+
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <!-- ✅ เรียกใช้ Custom CSS (ที่เรารวมไว้) -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<!-- ✅ ระบุว่านี่คือหน้า index เพื่อให้ JS รู้ว่าต้องรันฟังก์ชันอะไร -->
+
+<body data-page="index">
+
+    <div class="dashboard-container">
+
+        <!-- ================= SIDEBAR ================= -->
+        <aside class="sidebar">
+            <!-- Brand -->
+            <div class="mb-4 d-flex align-items-center gap-2">
+                <div class="bg-primary text-white rounded-3 p-2 d-flex align-items-center justify-content-center"
+                    style="width:40px; height:40px;">
+                    <i class="bi bi-robot fs-5"></i>
+                </div>
+                <div>
+                    <h4 class="fw-bold brand-font text-dark mb-0">SmartClean</h4>
+                    <!-- ✅ JS จะมาเปลี่ยน Badge ตัวนี้เองจาก LocalStorage -->
+                    <div id="planBadge" class="badge bg-secondary rounded-pill">Guest Mode</div>
+                </div>
+            </div>
+
+            <!-- 1. Upload Section -->
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold text-uppercase text-muted small">Step 1: Input Data</h6>
+                </div>
+                <div class="upload-area" id="dropZone" onclick="document.getElementById('csvFile').click()">
+                    <i class="bi bi-cloud-arrow-up-fill fs-1 mb-2 text-secondary"></i>
+                    <h6 class="fw-bold text-dark mb-1">Click to Upload</h6>
+                    <p class="small text-muted mb-0">CSV Only</p>
+                    <input type="file" id="csvFile" accept=".csv" hidden onchange="uploadFile()">
+                </div>
+            </div>
+
+            <!-- 2. Cleaning Options -->
+            <div id="controlPanel" class="d-none mb-4">
+                <h6 class="fw-bold text-uppercase text-muted small mb-3">Step 2: Clean Strategy</h6>
+                <select id="cleanModeSelect" class="form-select mb-3">
+                    <option value="ai_agent">🤖 Gemini AI Agent (Smartest)</option>
+                    <option value="auto_smart">✨ Classic Auto-Clean</option>
+                    <option value="manual">🛠️ Manual Configuration</option>
+                </select>
+
+                <div id="manualOptions" class="d-none mb-3 ps-2 border-start border-3 border-primary">
+                    <select id="manualAction" class="form-select form-select-sm bg-light">
+                        <option value="drop_missing">Drop Missing Rows</option>
+                        <option value="fill_mean">Fill Numeric with Mean</option>
+                        <option value="remove_outliers">Remove Outliers (IQR)</option>
+                    </select>
+                </div>
+
+                <button onclick="processData()" class="btn-ai shadow-sm" id="processBtn">
+                    <i class="bi bi-magic me-2"></i>Clean Data
+                </button>
+            </div>
+
+            <!-- 3. Shortcut to Prediction -->
+            <div class="mb-4 pt-3 border-top">
+                <h6 class="fw-bold text-uppercase text-muted small mb-2"><i class="bi bi-stars me-1"></i> Quick Tools
+                </h6>
+                <a href="predict.html"
+                    class="btn btn-warning w-100 rounded-pill fw-bold shadow-sm text-dark d-flex align-items-center justify-content-center">
+                    <i class="bi bi-magic me-2"></i>Prediction Playground
+                </a>
+            </div>
+
+            <!-- 4. History Section -->
+            <!-- ✅ สร้างโครงไว้ทั้ง 2 แบบ แล้ว JS จะเป็นคนเปิด/ปิด (d-none) ให้อัตโนมัติ -->
+            <div id="historySection" class="d-none mt-auto pt-3 border-top">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold text-uppercase text-muted small mb-0"><i class="bi bi-clock-history me-1"></i>
+                        Recent Files</h6>
+                    <button class="btn btn-sm text-primary p-0" onclick="loadHistory()"><i
+                            class="bi bi-arrow-clockwise"></i></button>
+                </div>
+                <div id="historyList" class="d-flex flex-column gap-1" style="max-height: 150px; overflow-y: auto;">
+                    <div class="text-center small text-muted py-2">Loading...</div>
+                </div>
+            </div>
+
+            <div id="guestMessage" class="mt-auto pt-3 border-top text-center">
+                <p class="small text-muted mb-2">Want to save your work?</p>
+                <a href="login.html" class="btn btn-outline-primary btn-sm w-100 rounded-pill">Login to Save History</a>
+            </div>
+        </aside>
+
+        <!-- ================= MAIN CONTENT ================= -->
+        <main class="main-content">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-5">
+                <div>
+                    <h2 class="fw-bold text-dark mb-1">Data Insights & AutoML</h2>
+                    <p class="text-muted mb-0">Visualize, Clean, and Build ML Models automatically.</p>
+                </div>
+
+                <!-- Auth Buttons -->
+                <div id="authContainer">
+                    <!-- ✅ Guest View (แสดงตอนยังไม่ล็อกอิน) -->
+                    <div id="authGuest">
+                        <a href="login.html"
+                            class="btn btn-white border text-primary fw-bold px-4 shadow-sm rounded-pill">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>Login
+                        </a>
+                    </div>
+
+                    <!-- ✅ Member View (แสดงตอนล็อกอินแล้ว) -->
+                    <div id="authMember" class="dropdown d-none">
+                        <button
+                            class="btn btn-white border text-dark fw-bold px-3 shadow-sm rounded-pill dropdown-toggle"
+                            type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-2 text-primary"></i><span
+                                id="userNameDisplay">Member</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 mt-2">
+                            <li>
+                                <h6 class="dropdown-header">Account</h6>
+                            </li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item text-warning" href="#"><i
+                                        class="bi bi-star-fill me-2"></i>Upgrade to Pro</a></li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li><button class="dropdown-item text-danger" onclick="logout()"><i
+                                        class="bi bi-box-arrow-right me-2"></i>Logout</button></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="text-center py-5 my-5">
+                <div class="mb-4 opacity-50"><i class="bi bi-cloud-upload display-1 text-secondary"></i></div>
+                <h4 class="fw-bold text-secondary">Waiting for Data</h4>
+                <p class="text-muted">Please upload a CSV file from the left panel to begin.</p>
+            </div>
+
+            <!-- Loading -->
+            <div id="loadingState" class="d-none text-center py-5 my-5">
+                <div class="spinner-border text-primary mb-3" role="status"></div>
+                <h5 class="fw-bold text-primary animate-pulse">Analyzing Dataset...</h5>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div id="dashboardContent" class="d-none">
+                <!-- Stats Row -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-3">
+                        <div class="card-modern p-4">
+                            <small class="text-muted text-uppercase fw-bold">Rows</small>
+                            <h2 class="fw-bold text-dark mb-0" id="statRows">-</h2>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card-modern p-4">
+                            <small class="text-muted text-uppercase fw-bold">Columns</small>
+                            <h2 class="fw-bold text-dark mb-0" id="statCols">-</h2>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card-modern p-4 d-flex align-items-center justify-content-between h-100 bg-white">
+                            <div>
+                                <small class="text-muted text-uppercase fw-bold">Data Health</small>
+                                <h4 class="fw-bold text-dark mb-0 mt-1" id="healthText">Analyzing...</h4>
+                            </div>
+                            <div id="healthBadge" class="badge bg-secondary rounded-pill px-3 py-2 fs-6">Unknown</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 1: Missing Values (FULL WIDTH) -->
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="card-modern p-4 h-100">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-bar-chart-fill text-primary me-2"></i>Missing
+                                Values Distribution</h6>
+                            <div id="missingChart" style="height: 350px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Correlation & Data Types (HALF WIDTH) -->
+                <div class="row g-4 mb-4">
+                    <!-- Correlation Matrix -->
+                    <div class="col-lg-6">
+                        <div class="card-modern p-4 h-100">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-grid-3x3-gap-fill text-danger me-2"></i>Correlation
+                                Matrix</h6>
+                            <div id="heatmapChart" style="height: 350px;"></div>
+                        </div>
+                    </div>
+                    <!-- Column Types -->
+                    <div class="col-lg-6">
+                        <div class="card-modern p-4 h-100">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart-fill text-info me-2"></i>Column Data
+                                Types</h6>
+                            <div id="dtypesChart" style="height: 350px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Data Preview (FULL WIDTH) -->
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="card-modern p-4 h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0"><i class="bi bi-table text-secondary me-2"></i>Data Preview
+                                </h6>
+                                <span class="badge bg-light text-muted border">First 5 Rows</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm small mb-0" id="previewTable">
+                                    <thead class="table-light">
+                                        <tr id="tableHead"></tr>
+                                    </thead>
+                                    <tbody id="tableBody">
+                                        <tr>
+                                            <td class="text-center text-muted p-4">Waiting for upload...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Result Box -->
+                <div id="resultSection" class="d-none mb-4">
+                    <div class="card-modern p-0 border-success border-2 overflow-hidden">
+                        <div
+                            class="bg-success-subtle p-3 px-4 border-bottom border-success-subtle d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                                <h5 class="fw-bold text-success-emphasis mb-0">Cleaning Complete!</h5>
+                            </div>
+                            <button id="downloadBtn" class="btn btn-success fw-bold px-4 shadow-sm rounded-pill">
+                                <i class="bi bi-download me-2"></i>Download Clean CSV
+                            </button>
+                        </div>
+                        <div class="p-4 bg-dark">
+                            <h6 class="text-white-50 text-uppercase small mb-3 fw-bold">System Logs</h6>
+                            <div class="console-log" id="logArea"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= NEW: MACHINE LEARNING STUDIO ================= -->
+                <div id="mlStudioSection" class="d-none mb-4">
+                    <div class="card-modern p-4 border-primary border-2 shadow-sm">
+                        <h4 class="fw-bold text-dark mb-4"><i class="bi bi-cpu-fill text-primary me-2"></i>Step 3:
+                            Auto-ML Studio</h4>
+
+                        <div class="row g-4">
+                            <!-- Left: Settings -->
+                            <div class="col-lg-5 border-end pe-4">
+                                <label class="fw-bold text-dark mb-2">1. Select Target Variable (Y):</label>
+                                <select id="targetColumn"
+                                    class="form-select mb-4 border-primary border-2 shadow-sm"></select>
+
+                                <label class="fw-bold text-dark mb-2">2. Training Mode:</label>
+                                <select id="mlMode" class="form-select mb-3">
+                                    <option value="auto">🚀 Full AutoML (Recommended)</option>
+                                    <option value="manual">⚙️ Manual Expert Mode</option>
+                                </select>
+
+                                <!-- Manual Options -->
+                                <div id="mlManualOptions" class="d-none bg-light p-3 rounded-3 mb-4 border">
+                                    <label class="small fw-bold mb-2">Select Models to Train:</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox"
+                                            value="Linear Regression" checked> <label class="small">Linear / Logistic
+                                            Regression</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox"
+                                            value="KNN Regressor" checked> <label class="small">K-Nearest Neighbors
+                                            (KNN)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox"
+                                            value="Decision Tree" checked> <label class="small">Decision Tree</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox"
+                                            value="Random Forest"> <label class="small">Random Forest</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox"
+                                            value="Gradient Boosting"> <label class="small">Gradient Boosting (GBM)
+                                            🚀</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox" value="SVM"> <label
+                                            class="small">Support Vector Machine (SVM)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox"
+                                            value="Neural Network (MLP)"> <label class="small">Neural Network
+                                            (MLP)</label>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input ml-model-cb" type="checkbox" value="Naive Bayes">
+                                        <label class="small">Naive Bayes (Classification)</label>
+                                    </div>
+
+                                    <hr class="my-2">
+
+                                    <!-- Feature Engineering UI -->
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="small fw-bold mb-1">Scaling:</label>
+                                            <select id="mlScaling" class="form-select form-select-sm">
+                                                <option value="standard">Standard (Z-Score)</option>
+                                                <option value="minmax">Min-Max (0-1)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="small fw-bold mb-1">Encoding:</label>
+                                            <select id="mlEncoding" class="form-select form-select-sm">
+                                                <option value="onehot">One-Hot (Default)</option>
+                                                <option value="ordinal">Ordinal (0,1,2...)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button onclick="trainModels()" class="btn-ml mt-3 w-100" id="trainBtn">
+                                    <i class="bi bi-play-circle-fill me-2"></i>Train Models
+                                </button>
+                            </div>
+
+                            <!-- Right: Leaderboard & Action -->
+                            <div class="col-lg-7 ps-4">
+                                <h6 class="fw-bold text-secondary mb-3"><i
+                                        class="bi bi-trophy-fill text-warning me-2"></i>Model Leaderboard</h6>
+
+                                <div id="leaderboardWait"
+                                    class="text-center py-5 bg-light rounded-3 border border-dashed">
+                                    <i class="bi bi-bar-chart-steps text-muted display-4 mb-3"></i>
+                                    <p class="text-muted small">Select a target variable and click "Train Models" to see
+                                        the results.</p>
+                                </div>
+
+                                <div id="leaderboardResults" class="d-none">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="badge bg-primary text-white" id="taskTypeBadge">Classification
+                                            Task</span>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle border text-center">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Rank</th>
+                                                    <th class="text-start">Algorithm</th>
+                                                    <th>Score</th>
+                                                    <th class="small text-muted">Precision</th>
+                                                    <th class="small text-muted">Recall</th>
+                                                    <th>Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="leaderboardBody"></tbody>
+                                        </table>
+                                    </div>
+                                    <div class="mt-3 text-end">
+                                        <button class="btn btn-outline-dark rounded-pill px-3 shadow-sm me-2"
+                                            data-bs-toggle="modal" data-bs-target="#pythonModal">
+                                            <i class="bi bi-filetype-py me-1"></i>How to use
+                                        </button>
+                                        <a href="predict.html"
+                                            class="btn btn-warning rounded-pill px-3 shadow-sm text-dark fw-bold">
+                                            <i class="bi bi-magic me-1"></i>Go to Predict
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- ================= MODAL: Python Source Code ================= -->
+    <div class="modal fade" id="pythonModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-top-4 border-bottom-0">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-filetype-py text-warning me-2"></i>Python
+                        Integration Guide</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body bg-dark text-light p-4">
+                    <p class="small text-info mb-3">1. ติดตั้ง Library ที่จำเป็น:
+                        <code>pip install pandas scikit-learn joblib</code><br>2. วางไฟล์โมเดล <code>.pkl</code>
+                        ไว้ในโฟลเดอร์เดียวกับโค้ดด้านล่าง
+                    </p>
+
+                    <div class="position-relative">
+                        <button class="btn btn-sm btn-outline-light position-absolute top-0 end-0 m-2"
+                            onclick="copyPythonCode()">
+                            <i class="bi bi-clipboard"></i> Copy
+                        </button>
+                        <pre class="rounded-3 p-3 bg-black" style="font-family: 'Courier New', Courier, monospace;"><code id="pythonCodeSnippet" class="text-success">import pandas as pd
+import joblib
+
+# 1. โหลดโมเดล
+model = joblib.load('model_name.pkl')
+
+# 2. เตรียมข้อมูลใหม่ (ต้องมีคอลัมน์เหมือนตอนฝึก)
+new_data = pd.read_csv('new_data.csv')
+
+# 3. พยากรณ์
+predictions = model.predict(new_data)
+new_data['Prediction'] = predictions
+
+print(new_data.head())
+</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- ✅ เรียกใช้ไฟล์ JavaScript หลักของเรา -->
+    <script src="script.js"></script>
+</body>
+
+</html>

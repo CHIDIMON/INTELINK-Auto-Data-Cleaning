@@ -1,0 +1,376 @@
+/* ==========================================
+   1. GLOBAL VARIABLES & BASE
+   ========================================== */
+:root {
+    --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    --primary-color: #6366f1;
+    --ml-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --glass-bg: rgba(255, 255, 255, 0.95);
+    --sidebar-width: 320px;
+    --bg-color: #f8fafc;
+    --text-main: #334155;
+}
+
+body {
+    font-family: 'Sarabun', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    overflow-x: hidden;
+    /* ให้ Dashboard เลื่อนลงได้ แต่ห้ามเลื่อนซ้ายขวา */
+    min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+.brand-font {
+    font-family: 'Outfit', sans-serif;
+}
+
+/* ==========================================
+   2. AUTHENTICATION PAGES (Login / Register)
+   ========================================== */
+.login-container {
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+}
+
+.brand-side {
+    flex: 1;
+    background: var(--primary-gradient);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    overflow: hidden;
+}
+
+.circle {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.c1 {
+    width: 300px;
+    height: 300px;
+    top: -50px;
+    left: -50px;
+}
+
+.c2 {
+    width: 500px;
+    height: 500px;
+    bottom: -100px;
+    right: -100px;
+}
+
+.brand-content {
+    z-index: 10;
+    text-align: center;
+    padding: 2rem;
+}
+
+.form-side {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: white;
+    padding: 2rem;
+    position: relative;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 400px;
+    padding: 2rem;
+    animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.form-floating>.form-control {
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background-color: #f8fafc;
+}
+
+.form-floating>.form-control:focus {
+    border-color: #6366f1;
+    background-color: white;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+/* Auth Buttons */
+.btn-login,
+.btn-primary-gradient {
+    background: var(--primary-gradient);
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-weight: 600;
+    width: 100%;
+    transition: 0.3s;
+    color: white;
+}
+
+.btn-login:hover,
+.btn-primary-gradient:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+    opacity: 0.95;
+    color: white;
+}
+
+.social-btn {
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #475569;
+    padding: 10px;
+    border-radius: 10px;
+    transition: 0.2s;
+}
+
+.social-btn:hover {
+    background: #f1f5f9;
+    transform: translateY(-1px);
+}
+
+/* ==========================================
+   3. DASHBOARD PAGES (Index / Predict)
+   ========================================== */
+.dashboard-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: var(--sidebar-width);
+    background: #ffffff;
+    border-right: 1px solid #e2e8f0;
+    padding: 2rem;
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.02);
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content {
+    flex: 1;
+    margin-left: var(--sidebar-width);
+    padding: 2rem 3rem;
+    max-width: 1600px;
+}
+
+.card-modern {
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 20px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.card-modern:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+    border-color: #cbd5e1;
+}
+
+/* ==========================================
+   4. DASHBOARD BUTTONS & UI ELEMENTS
+   ========================================== */
+.btn-ai {
+    background: var(--primary-gradient);
+    border: none;
+    color: white;
+    padding: 14px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    width: 100%;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-ai:hover {
+    opacity: 0.95;
+    transform: scale(1.02);
+    color: white;
+    box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
+}
+
+.btn-ml {
+    background: var(--ml-gradient);
+    border: none;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    width: 100%;
+    transition: 0.3s;
+}
+
+.btn-ml:hover {
+    opacity: 0.95;
+    transform: scale(1.02);
+    color: white;
+    box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3);
+}
+
+/* ✅ ปุ่ม Manual ในหน้า Predict ที่ตกหล่นไป */
+.btn-manual {
+    background: var(--ml-gradient);
+    border: none;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.btn-manual:hover {
+    opacity: 0.95;
+    transform: scale(1.02);
+    color: white;
+    box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3);
+}
+
+/* ✅ ตัวเลขสถิติ และ กล่องกรอกข้อมูล ในหน้า Predict */
+.stat-value {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 2.5rem;
+    color: var(--primary-color);
+}
+
+.manual-input-box {
+    background-color: #f1f5f9;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.manual-input-box:focus {
+    border-color: var(--primary-color);
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.upload-area {
+    border: 2px dashed #cbd5e1;
+    border-radius: 16px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: 0.3s;
+    background: #f1f5f9;
+}
+
+.upload-area:hover {
+    border-color: var(--primary-color);
+    background: #e0e7ff;
+    color: var(--primary-color);
+}
+
+.console-log {
+    background: #0f172a;
+    color: #38bdf8;
+    border-radius: 12px;
+    padding: 20px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    height: 150px;
+    overflow-y: auto;
+}
+
+.history-item {
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+    border: 1px solid transparent;
+    font-size: 0.9rem;
+    position: relative;
+}
+
+.history-item:hover {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    transform: translateX(5px);
+}
+
+.history-item:hover::after {
+    content: '\F30A';
+    font-family: "bootstrap-icons";
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--primary-color);
+    font-size: 1.2rem;
+}
+
+.leaderboard-row {
+    transition: 0.2s;
+    border-radius: 10px;
+}
+
+.leaderboard-row:hover {
+    background-color: #f1f5f9;
+    transform: scale(1.01);
+}
+
+.pro-badge {
+    background: linear-gradient(45deg, #FFD700, #FFA500);
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ==========================================
+   5. RESPONSIVE DESIGN (Media Queries)
+   ========================================== */
+@media (max-width: 992px) {
+    .sidebar {
+        position: relative;
+        width: 100%;
+        height: auto;
+        border-right: none;
+    }
+
+    .main-content {
+        margin-left: 0;
+        padding: 1.5rem;
+    }
+
+    .dashboard-container {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 768px) {
+    .brand-side {
+        display: none;
+    }
+
+    .form-side {
+        background: var(--bg-color);
+    }
+}
