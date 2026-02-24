@@ -1,496 +1,457 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart AI Data Cleaner & AutoML</title>
-    
+
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Sarabun:wght@300;400;600&display=swap"
+        rel="stylesheet">
+
+    <!-- Plotly.js -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <link rel="stylesheet" href="css/style.css">
+
+    <!-- ✅ เรียกใช้ Custom CSS (ที่เรารวมไว้) -->
+    <link rel="stylesheet" href="style.css">
 </head>
-<body>
 
-<div class="dashboard-container">
-    
-    <aside class="sidebar">
-        <div class="mb-4 d-flex align-items-center gap-2">
-            <div class="bg-primary text-white rounded-3 p-2 d-flex align-items-center justify-content-center" style="width:40px; height:40px;">
-                <i class="bi bi-robot fs-5"></i>
-            </div>
-            <div>
-                <h4 class="fw-bold brand-font text-dark mb-0">SmartClean</h4>
-                <div id="userBadge"></div>
-            </div>
-        </div>
+<!-- ✅ ระบุว่านี่คือหน้า index เพื่อให้ JS รู้ว่าต้องรันฟังก์ชันอะไร -->
 
-        <div class="mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="fw-bold text-uppercase text-muted small">Step 1: Input Data</h6>
-            </div>
-            <div class="upload-area" id="dropZone" onclick="document.getElementById('csvFile').click()">
-                <i class="bi bi-cloud-arrow-up-fill fs-1 mb-2 text-secondary"></i>
-                <h6 class="fw-bold text-dark mb-1">Click to Upload</h6>
-                <p class="small text-muted mb-0">CSV Only</p>
-                <input type="file" id="csvFile" accept=".csv" hidden onchange="uploadFile()">
-            </div>
-        </div>
+<body data-page="index">
 
-        <div id="controlPanel" class="d-none mb-4">
-            <h6 class="fw-bold text-uppercase text-muted small mb-3">Step 2: Clean Strategy</h6>
-            <select id="cleanModeSelect" class="form-select mb-3">
-                <option value="ai_agent">🤖 Gemini AI Agent (Smartest)</option>
-                <option value="auto_smart">✨ Classic Auto-Clean</option>
-                <option value="manual">🛠️ Manual Configuration</option>
-            </select>
-            
-            <div id="manualOptions" class="d-none mb-3 ps-2 border-start border-3 border-primary">
-                <select id="manualAction" class="form-select form-select-sm bg-light">
-                    <option value="drop_missing">Drop Missing Rows</option>
-                    <option value="fill_mean">Fill Numeric with Mean</option>
-                    <option value="remove_outliers">Remove Outliers (IQR)</option>
+    <div class="dashboard-container">
+
+        <!-- ================= SIDEBAR ================= -->
+        <aside class="sidebar">
+            <!-- Brand -->
+            <div class="mb-4 d-flex align-items-center gap-2">
+                <div class="bg-primary text-white rounded-3 p-2 d-flex align-items-center justify-content-center"
+                    style="width:40px; height:40px;">
+                    <i class="bi bi-robot fs-5"></i>
+                </div>
+                <div>
+                    <h4 class="fw-bold brand-font text-dark mb-0">SmartClean</h4>
+                    <!-- ✅ JS จะมาเปลี่ยน Badge ตัวนี้เองจาก LocalStorage -->
+                    <div id="planBadge" class="badge bg-secondary rounded-pill">Guest Mode</div>
+                </div>
+            </div>
+
+            <!-- 1. Upload Section -->
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold text-uppercase text-muted small">Step 1: Input Data</h6>
+                </div>
+                <div class="upload-area" id="dropZone" onclick="document.getElementById('csvFile').click()">
+                    <i class="bi bi-cloud-arrow-up-fill fs-1 mb-2 text-secondary"></i>
+                    <h6 class="fw-bold text-dark mb-1">Click to Upload</h6>
+                    <p class="small text-muted mb-0">CSV Only</p>
+                    <input type="file" id="csvFile" accept=".csv" hidden onchange="uploadFile()">
+                </div>
+            </div>
+
+            <!-- 2. Cleaning Options -->
+            <div id="controlPanel" class="d-none mb-4">
+                <h6 class="fw-bold text-uppercase text-muted small mb-3">Step 2: Clean Strategy</h6>
+                <select id="cleanModeSelect" class="form-select mb-3">
+                    <option value="ai_agent">🤖 Gemini AI Agent (Smartest)</option>
+                    <option value="auto_smart">✨ Classic Auto-Clean</option>
+                    <option value="manual">🛠️ Manual Configuration</option>
                 </select>
+
+                <div id="manualOptions" class="d-none mb-3 ps-2 border-start border-3 border-primary">
+                    <select id="manualAction" class="form-select form-select-sm bg-light">
+                        <option value="drop_missing">Drop Missing Rows</option>
+                        <option value="fill_mean">Fill Numeric with Mean</option>
+                        <option value="remove_outliers">Remove Outliers (IQR)</option>
+                    </select>
+                </div>
+
+                <button onclick="processData()" class="btn-ai shadow-sm" id="processBtn">
+                    <i class="bi bi-magic me-2"></i>Clean Data
+                </button>
             </div>
 
-            <button onclick="processData()" class="btn-ai shadow-sm" id="processBtn">
-                <i class="bi bi-magic me-2"></i>Clean Data
-            </button>
-        </div>
-
-        <div id="historySection" class="mt-auto pt-3 border-top"></div>
-    </aside>
-
-    <main class="main-content">
-        <div class="d-flex justify-content-between align-items-center mb-5">
-            <div>
-                <h2 class="fw-bold text-dark mb-1">Data Insights & AutoML</h2>
-                <p class="text-muted mb-0">Visualize, Clean, and Build ML Models automatically.</p>
+            <!-- 3. Shortcut to Prediction -->
+            <div class="mb-4 pt-3 border-top">
+                <h6 class="fw-bold text-uppercase text-muted small mb-2"><i class="bi bi-stars me-1"></i> Quick Tools
+                </h6>
+                <a href="predict.html"
+                    class="btn btn-warning w-100 rounded-pill fw-bold shadow-sm text-dark d-flex align-items-center justify-content-center">
+                    <i class="bi bi-magic me-2"></i>Prediction Playground
+                </a>
             </div>
-            <div id="authContainer"></div>
-        </div>
 
-        <div id="emptyState" class="text-center py-5 my-5">
-            <div class="mb-4 opacity-50"><i class="bi bi-cloud-upload display-1 text-secondary"></i></div>
-            <h4 class="fw-bold text-secondary">Waiting for Data</h4>
-            <p class="text-muted">Please upload a CSV file from the left panel to begin.</p>
-        </div>
-
-        <div id="loadingState" class="d-none text-center py-5 my-5">
-            <div class="spinner-border text-primary mb-3" role="status"></div>
-            <h5 class="fw-bold text-primary animate-pulse">Analyzing Dataset...</h5>
-        </div>
-
-        <div id="dashboardContent" class="d-none">
-            <div class="row g-4 mb-4">
-                <div class="col-md-3">
-                    <div class="card-modern p-4">
-                        <small class="text-muted text-uppercase fw-bold">Rows</small>
-                        <h2 class="fw-bold text-dark mb-0" id="statRows">-</h2>
-                    </div>
+            <!-- 4. History Section -->
+            <!-- ✅ สร้างโครงไว้ทั้ง 2 แบบ แล้ว JS จะเป็นคนเปิด/ปิด (d-none) ให้อัตโนมัติ -->
+            <div id="historySection" class="d-none mt-auto pt-3 border-top">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold text-uppercase text-muted small mb-0"><i class="bi bi-clock-history me-1"></i>
+                        Recent Files</h6>
+                    <button class="btn btn-sm text-primary p-0" onclick="loadHistory()"><i
+                            class="bi bi-arrow-clockwise"></i></button>
                 </div>
-                <div class="col-md-3">
-                    <div class="card-modern p-4">
-                        <small class="text-muted text-uppercase fw-bold">Columns</small>
-                        <h2 class="fw-bold text-dark mb-0" id="statCols">-</h2>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card-modern p-4 d-flex align-items-center justify-content-between h-100 bg-white">
-                        <div>
-                            <small class="text-muted text-uppercase fw-bold">Data Health</small>
-                            <h4 class="fw-bold text-dark mb-0 mt-1" id="healthText">Analyzing...</h4>
-                        </div>
-                        <div id="healthBadge" class="badge bg-secondary rounded-pill px-3 py-2 fs-6">Unknown</div>
-                    </div>
+                <div id="historyList" class="d-flex flex-column gap-1" style="max-height: 150px; overflow-y: auto;">
+                    <div class="text-center small text-muted py-2">Loading...</div>
                 </div>
             </div>
 
-            <div class="row g-4 mb-4">
-                <div class="col-12">
-                    <div class="card-modern p-4 h-100">
-                        <h6 class="fw-bold mb-3">Missing Values Distribution</h6>
-                        <div id="missingChart" style="height: 350px;"></div>
-                    </div>
-                </div>
+            <div id="guestMessage" class="mt-auto pt-3 border-top text-center">
+                <p class="small text-muted mb-2">Want to save your work?</p>
+                <a href="login.html" class="btn btn-outline-primary btn-sm w-100 rounded-pill">Login to Save History</a>
             </div>
+        </aside>
 
-            <div class="row g-4 mb-4">
-                <div class="col-lg-6">
-                    <div class="card-modern p-4 h-100">
-                        <h6 class="fw-bold mb-3">Correlation Matrix</h6>
-                        <div id="heatmapChart" style="height: 350px;"></div>
-                    </div>
+        <!-- ================= MAIN CONTENT ================= -->
+        <main class="main-content">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-5">
+                <div>
+                    <h2 class="fw-bold text-dark mb-1">Data Insights & AutoML</h2>
+                    <p class="text-muted mb-0">Visualize, Clean, and Build ML Models automatically.</p>
                 </div>
-                <div class="col-lg-6">
-                    <div class="card-modern p-4 h-100">
-                        <h6 class="fw-bold mb-3">Data Types</h6>
-                        <div id="dtypesChart" style="height: 350px;"></div>
-                    </div>
-                </div>
-            </div>
 
-            <div class="row g-4 mb-4">
-                <div class="col-12">
-                    <div class="card-modern p-4 h-100">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="fw-bold mb-0">Data Preview</h6>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-hover table-sm small mb-0">
-                                <thead class="table-light"><tr id="tableHead"></tr></thead>
-                                <tbody id="tableBody"></tbody>
-                            </table>
-                        </div>
+                <!-- Auth Buttons -->
+                <div id="authContainer">
+                    <!-- ✅ Guest View (แสดงตอนยังไม่ล็อกอิน) -->
+                    <div id="authGuest">
+                        <a href="login.html"
+                            class="btn btn-white border text-primary fw-bold px-4 shadow-sm rounded-pill">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>Login
+                        </a>
                     </div>
-                </div>
-            </div>
 
-            <div id="resultSection" class="d-none mb-4">
-                <div class="card-modern p-0 border-success border-2 overflow-hidden" id="resultCard">
-                    <div id="resultHeader" class="bg-success-subtle p-3 px-4 border-bottom border-success-subtle d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center gap-2">
-                            <i id="resultIcon" class="bi bi-check-circle-fill text-success fs-4"></i>
-                            <h5 id="resultTitle" class="fw-bold text-success-emphasis mb-0">Cleaning Complete!</h5>
-                        </div>
-                        <button id="downloadBtn" class="btn btn-success fw-bold px-4 shadow-sm rounded-pill">
-                            <i class="bi bi-download me-2"></i>Download Clean CSV
+                    <!-- ✅ Member View (แสดงตอนล็อกอินแล้ว) -->
+                    <div id="authMember" class="dropdown d-none">
+                        <button
+                            class="btn btn-white border text-dark fw-bold px-3 shadow-sm rounded-pill dropdown-toggle"
+                            type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-2 text-primary"></i><span
+                                id="userNameDisplay">Member</span>
                         </button>
-                    </div>
-                    <div class="p-4 bg-dark">
-                        <h6 class="text-white-50 text-uppercase small mb-3 fw-bold">System Logs</h6>
-                        <div class="console-log" id="logArea"></div>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 mt-2">
+                            <li>
+                                <h6 class="dropdown-header">Account</h6>
+                            </li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item text-warning" href="#"><i
+                                        class="bi bi-star-fill me-2"></i>Upgrade to Pro</a></li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li><button class="dropdown-item text-danger" onclick="logout()"><i
+                                        class="bi bi-box-arrow-right me-2"></i>Logout</button></li>
+                        </ul>
                     </div>
                 </div>
             </div>
 
-            <div id="mlStudioSection" class="d-none mb-4">
-                <div class="card-modern p-4 border-primary border-2 shadow-sm">
-                    <h4 class="fw-bold text-dark mb-4"><i class="bi bi-cpu-fill text-primary me-2"></i>Step 3: Auto-ML Studio</h4>
-                    
-                    <div class="row g-4">
-                        <div class="col-lg-5 border-end pe-4">
-                            <label class="fw-bold text-dark mb-2">1. Select Target Variable (Y):</label>
-                            <select id="targetColumn" class="form-select mb-4 border-primary border-2 shadow-sm"></select>
-                            
-                            <label class="fw-bold text-dark mb-2">2. Training Mode:</label>
-                            <select id="mlMode" class="form-select mb-3">
-                                <option value="auto">🚀 Full AutoML (Recommended)</option>
-                                <option value="manual">⚙️ Manual Expert Mode</option>
-                            </select>
-                            
-                            <div id="mlManualOptions" class="d-none bg-light p-3 rounded-3 mb-4 border">
-                                <label class="small fw-bold mb-2">Select Models to Train:</label>
-                                <div class="form-check"><input class="form-check-input ml-model-cb" type="checkbox" value="Linear Regression" checked> <label class="small">Linear / Logistic Regression</label></div>
-                                <div class="form-check"><input class="form-check-input ml-model-cb" type="checkbox" value="KNN Regressor" checked> <label class="small">K-Nearest Neighbors (KNN)</label></div>
-                                <div class="form-check"><input class="form-check-input ml-model-cb" type="checkbox" value="Decision Tree" checked> <label class="small">Decision Tree</label></div>
-                                <div class="form-check"><input class="form-check-input ml-model-cb" type="checkbox" value="Random Forest"> <label class="small">Random Forest</label></div>
-                                <div class="form-check"><input class="form-check-input ml-model-cb" type="checkbox" value="SVM"> <label class="small">Support Vector Machine (SVM)</label></div>
-                                <div class="form-check mb-2"><input class="form-check-input ml-model-cb" type="checkbox" value="Neural Network (MLP)"> <label class="small">Neural Network (MLP)</label></div>
-                                
-                                <label class="small fw-bold mt-2 mb-1">Scaling Method:</label>
-                                <select id="mlScaling" class="form-select form-select-sm">
-                                    <option value="standard">Standard Scaler (Z-Score)</option>
-                                    <option value="minmax">Min-Max Scaler (0 to 1)</option>
-                                </select>
-                            </div>
+            <!-- Empty State -->
+            <div id="emptyState" class="text-center py-5 my-5">
+                <div class="mb-4 opacity-50"><i class="bi bi-cloud-upload display-1 text-secondary"></i></div>
+                <h4 class="fw-bold text-secondary">Waiting for Data</h4>
+                <p class="text-muted">Please upload a CSV file from the left panel to begin.</p>
+            </div>
 
-                            <button onclick="trainModels()" class="btn-ml mt-2" id="trainBtn">
-                                <i class="bi bi-play-circle-fill me-2"></i>Train Models
+            <!-- Loading -->
+            <div id="loadingState" class="d-none text-center py-5 my-5">
+                <div class="spinner-border text-primary mb-3" role="status"></div>
+                <h5 class="fw-bold text-primary animate-pulse">Analyzing Dataset...</h5>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div id="dashboardContent" class="d-none">
+                <!-- Stats Row -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-3">
+                        <div class="card-modern p-4">
+                            <small class="text-muted text-uppercase fw-bold">Rows</small>
+                            <h2 class="fw-bold text-dark mb-0" id="statRows">-</h2>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card-modern p-4">
+                            <small class="text-muted text-uppercase fw-bold">Columns</small>
+                            <h2 class="fw-bold text-dark mb-0" id="statCols">-</h2>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card-modern p-4 d-flex align-items-center justify-content-between h-100 bg-white">
+                            <div>
+                                <small class="text-muted text-uppercase fw-bold">Data Health</small>
+                                <h4 class="fw-bold text-dark mb-0 mt-1" id="healthText">Analyzing...</h4>
+                            </div>
+                            <div id="healthBadge" class="badge bg-secondary rounded-pill px-3 py-2 fs-6">Unknown</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 1: Missing Values (FULL WIDTH) -->
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="card-modern p-4 h-100">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-bar-chart-fill text-primary me-2"></i>Missing
+                                Values Distribution</h6>
+                            <div id="missingChart" style="height: 350px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Correlation & Data Types (HALF WIDTH) -->
+                <div class="row g-4 mb-4">
+                    <!-- Correlation Matrix -->
+                    <div class="col-lg-6">
+                        <div class="card-modern p-4 h-100">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-grid-3x3-gap-fill text-danger me-2"></i>Correlation
+                                Matrix</h6>
+                            <div id="heatmapChart" style="height: 350px;"></div>
+                        </div>
+                    </div>
+                    <!-- Column Types -->
+                    <div class="col-lg-6">
+                        <div class="card-modern p-4 h-100">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart-fill text-info me-2"></i>Column Data
+                                Types</h6>
+                            <div id="dtypesChart" style="height: 350px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Data Preview (FULL WIDTH) -->
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="card-modern p-4 h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0"><i class="bi bi-table text-secondary me-2"></i>Data Preview
+                                </h6>
+                                <span class="badge bg-light text-muted border">First 5 Rows</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm small mb-0" id="previewTable">
+                                    <thead class="table-light">
+                                        <tr id="tableHead"></tr>
+                                    </thead>
+                                    <tbody id="tableBody">
+                                        <tr>
+                                            <td class="text-center text-muted p-4">Waiting for upload...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Result Box -->
+                <div id="resultSection" class="d-none mb-4">
+                    <div class="card-modern p-0 border-success border-2 overflow-hidden">
+                        <div
+                            class="bg-success-subtle p-3 px-4 border-bottom border-success-subtle d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                                <h5 class="fw-bold text-success-emphasis mb-0">Cleaning Complete!</h5>
+                            </div>
+                            <button id="downloadBtn" class="btn btn-success fw-bold px-4 shadow-sm rounded-pill">
+                                <i class="bi bi-download me-2"></i>Download Clean CSV
                             </button>
                         </div>
-                        
-                        <div class="col-lg-7 ps-4">
-                            <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-trophy-fill text-warning me-2"></i>Model Leaderboard</h6>
-                            <div id="leaderboardWait" class="text-center py-5 bg-light rounded-3 border border-dashed">
-                                <i class="bi bi-bar-chart-steps text-muted display-4 mb-3"></i>
-                                <p class="text-muted small">Select a target variable and click "Train Models" to see the results.</p>
+                        <div class="p-4 bg-dark">
+                            <h6 class="text-white-50 text-uppercase small mb-3 fw-bold">System Logs</h6>
+                            <div class="console-log" id="logArea"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= NEW: MACHINE LEARNING STUDIO ================= -->
+                <div id="mlStudioSection" class="d-none mb-4">
+                    <div class="card-modern p-4 border-primary border-2 shadow-sm">
+                        <h4 class="fw-bold text-dark mb-4"><i class="bi bi-cpu-fill text-primary me-2"></i>Step 3:
+                            Auto-ML Studio</h4>
+
+                        <div class="row g-4">
+                            <!-- Left: Settings -->
+                            <div class="col-lg-5 border-end pe-4">
+                                <label class="fw-bold text-dark mb-2">1. Select Target Variable (Y):</label>
+                                <select id="targetColumn"
+                                    class="form-select mb-4 border-primary border-2 shadow-sm"></select>
+
+                                <label class="fw-bold text-dark mb-2">2. Training Mode:</label>
+                                <select id="mlMode" class="form-select mb-3">
+                                    <option value="auto">🚀 Full AutoML (Recommended)</option>
+                                    <option value="manual">⚙️ Manual Expert Mode</option>
+                                </select>
+
+                                <!-- Manual Options -->
+                                <div id="mlManualOptions" class="d-none bg-light p-3 rounded-3 mb-4 border">
+                                    <label class="small fw-bold mb-2">Select Models to Train:</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox"
+                                            value="Linear Regression" checked> <label class="small">Linear / Logistic
+                                            Regression</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox"
+                                            value="KNN Regressor" checked> <label class="small">K-Nearest Neighbors
+                                            (KNN)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox"
+                                            value="Decision Tree" checked> <label class="small">Decision Tree</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox"
+                                            value="Random Forest"> <label class="small">Random Forest</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox"
+                                            value="Gradient Boosting"> <label class="small">Gradient Boosting (GBM)
+                                            🚀</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox" value="SVM"> <label
+                                            class="small">Support Vector Machine (SVM)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input ml-model-cb" type="checkbox"
+                                            value="Neural Network (MLP)"> <label class="small">Neural Network
+                                            (MLP)</label>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input ml-model-cb" type="checkbox" value="Naive Bayes">
+                                        <label class="small">Naive Bayes (Classification)</label>
+                                    </div>
+
+                                    <hr class="my-2">
+
+                                    <!-- Feature Engineering UI -->
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="small fw-bold mb-1">Scaling:</label>
+                                            <select id="mlScaling" class="form-select form-select-sm">
+                                                <option value="standard">Standard (Z-Score)</option>
+                                                <option value="minmax">Min-Max (0-1)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="small fw-bold mb-1">Encoding:</label>
+                                            <select id="mlEncoding" class="form-select form-select-sm">
+                                                <option value="onehot">One-Hot (Default)</option>
+                                                <option value="ordinal">Ordinal (0,1,2...)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button onclick="trainModels()" class="btn-ml mt-3 w-100" id="trainBtn">
+                                    <i class="bi bi-play-circle-fill me-2"></i>Train Models
+                                </button>
                             </div>
-                            <div id="leaderboardResults" class="d-none">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="badge bg-primary text-white" id="taskTypeBadge">Task Type</span>
+
+                            <!-- Right: Leaderboard & Action -->
+                            <div class="col-lg-7 ps-4">
+                                <h6 class="fw-bold text-secondary mb-3"><i
+                                        class="bi bi-trophy-fill text-warning me-2"></i>Model Leaderboard</h6>
+
+                                <div id="leaderboardWait"
+                                    class="text-center py-5 bg-light rounded-3 border border-dashed">
+                                    <i class="bi bi-bar-chart-steps text-muted display-4 mb-3"></i>
+                                    <p class="text-muted small">Select a target variable and click "Train Models" to see
+                                        the results.</p>
                                 </div>
-                                <div class="table-responsive">
-                                    <table class="table table-hover align-middle border">
-                                        <thead class="table-light"><tr><th>Rank</th><th>Algorithm</th><th>Score</th></tr></thead>
-                                        <tbody id="leaderboardBody"></tbody>
-                                    </table>
-                                </div>
-                                <div class="mt-3 d-flex justify-content-end gap-2">
-                                    <button class="btn btn-outline-dark rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#pythonModal">
-                                        <i class="bi bi-filetype-py me-1"></i>How to use in Python
-                                    </button>
-                                    <button id="downloadModelBtn" class="btn btn-primary rounded-pill px-4 shadow-sm">
-                                        <i class="bi bi-download me-2"></i>Download .pkl
-                                    </button>
+
+                                <div id="leaderboardResults" class="d-none">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="badge bg-primary text-white" id="taskTypeBadge">Classification
+                                            Task</span>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle border text-center">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Rank</th>
+                                                    <th class="text-start">Algorithm</th>
+                                                    <th>Score</th>
+                                                    <th class="small text-muted">Precision</th>
+                                                    <th class="small text-muted">Recall</th>
+                                                    <th>Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="leaderboardBody"></tbody>
+                                        </table>
+                                    </div>
+                                    <div class="mt-3 text-end">
+                                        <button class="btn btn-outline-dark rounded-pill px-3 shadow-sm me-2"
+                                            data-bs-toggle="modal" data-bs-target="#pythonModal">
+                                            <i class="bi bi-filetype-py me-1"></i>How to use
+                                        </button>
+                                        <a href="predict.html"
+                                            class="btn btn-warning rounded-pill px-3 shadow-sm text-dark fw-bold">
+                                            <i class="bi bi-magic me-1"></i>Go to Predict
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-        </div>
-    </main>
-</div>
-
-<div class="modal fade" id="pythonModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content rounded-4 border-0 shadow-lg">
-            <div class="modal-header bg-dark text-white rounded-top-4 border-bottom-0">
-                <h5 class="modal-title fw-bold"><i class="bi bi-filetype-py text-warning me-2"></i>Python Integration Guide</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body bg-dark text-light p-4">
-                <p class="small text-info mb-3">1. Install: <code>pip install pandas scikit-learn joblib</code><br>2. Place <code>best_model.pkl</code> in the folder.</p>
-                <div class="position-relative">
-                    <button class="btn btn-sm btn-outline-light position-absolute top-0 end-0 m-2" onclick="copyPythonCode()"><i class="bi bi-clipboard"></i> Copy</button>
-                    <pre class="rounded-3 p-3 bg-black"><code id="pythonCodeSnippet" class="text-success">import pandas as pd
+        </main>
+    </div>
+
+    <!-- ================= MODAL: Python Source Code ================= -->
+    <div class="modal fade" id="pythonModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-top-4 border-bottom-0">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-filetype-py text-warning me-2"></i>Python
+                        Integration Guide</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body bg-dark text-light p-4">
+                    <p class="small text-info mb-3">1. ติดตั้ง Library ที่จำเป็น:
+                        <code>pip install pandas scikit-learn joblib</code><br>2. วางไฟล์โมเดล <code>.pkl</code>
+                        ไว้ในโฟลเดอร์เดียวกับโค้ดด้านล่าง
+                    </p>
+
+                    <div class="position-relative">
+                        <button class="btn btn-sm btn-outline-light position-absolute top-0 end-0 m-2"
+                            onclick="copyPythonCode()">
+                            <i class="bi bi-clipboard"></i> Copy
+                        </button>
+                        <pre class="rounded-3 p-3 bg-black" style="font-family: 'Courier New', Courier, monospace;"><code id="pythonCodeSnippet" class="text-success">import pandas as pd
 import joblib
 
-# Load & Predict
-model = joblib.load('best_model.pkl')
+# 1. โหลดโมเดล
+model = joblib.load('model_name.pkl')
+
+# 2. เตรียมข้อมูลใหม่ (ต้องมีคอลัมน์เหมือนตอนฝึก)
 new_data = pd.read_csv('new_data.csv')
+
+# 3. พยากรณ์
 predictions = model.predict(new_data)
-print(predictions)</code></pre>
+new_data['Prediction'] = predictions
+
+print(new_data.head())
+</code></pre>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-<script>
-    const API_URL = "http://127.0.0.1:8000";
-    const user = JSON.parse(localStorage.getItem('user')) || null;
-    const username = user ? user.username : 'Guest';
-    const plan = user ? user.plan : 'free';
-    
-    let currentRawFile = "";
-    let currentCleanFile = "";
-    let datasetColumns = [];
-
-    // 1. Download Helper (Fixes fetch issue)
-    async function downloadFile(url, filename) {
-        try {
-            const response = await fetch(url, { method: 'GET', headers: { 'ngrok-skip-browser-warning': 'true' } });
-            if (!response.ok) throw new Error("Download failed");
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = downloadUrl; a.download = filename;
-            document.body.appendChild(a); a.click();
-            window.URL.revokeObjectURL(downloadUrl); document.body.removeChild(a);
-        } catch (err) { alert("Download Error: " + err.message); }
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-        initAuthUI();
-        document.getElementById('cleanModeSelect').addEventListener('change', (e) => {
-            const el = document.getElementById('manualOptions');
-            if(e.target.value === 'manual') el.classList.remove('d-none'); else el.classList.add('d-none');
-        });
-        document.getElementById('mlMode').addEventListener('change', (e) => {
-            const el = document.getElementById('mlManualOptions');
-            if(e.target.value === 'manual') el.classList.remove('d-none'); else el.classList.add('d-none');
-        });
-    });
-
-    function initAuthUI() {
-        const badge = document.getElementById('userBadge');
-        const history = document.getElementById('historySection');
-        const authContainer = document.getElementById('authContainer');
-
-        if (user) {
-            badge.innerHTML = plan === 'pro' ? `<div class="badge pro-badge rounded-pill">PRO Plan</div>` : `<div class="badge bg-info text-dark rounded-pill">Free Plan</div>`;
-            history.innerHTML = `<div class="d-flex justify-content-between mb-2"><small class="fw-bold text-muted">HISTORY</small><button class="btn btn-sm text-primary p-0" onclick="loadHistory()"><i class="bi bi-arrow-clockwise"></i></button></div><div id="historyList" class="d-flex flex-column gap-1"></div>`;
-            authContainer.innerHTML = `<button class="btn btn-white border rounded-pill shadow-sm" onclick="logout()"><i class="bi bi-person-circle me-2"></i>${username} (Logout)</button>`;
-            loadHistory();
-        } else {
-            badge.innerHTML = `<div class="badge bg-secondary rounded-pill">Guest</div>`;
-            history.innerHTML = `<div class="text-center p-3"><a href="login.html" class="btn btn-sm btn-outline-primary rounded-pill w-100">Login</a></div>`;
-            authContainer.innerHTML = `<a href="login.html" class="btn btn-white border rounded-pill shadow-sm">Login</a>`;
-        }
-    }
-
-    function logout() { localStorage.removeItem('user'); window.location.reload(); }
-
-    async function uploadFile() {
-        const fileInput = document.getElementById('csvFile');
-        if(fileInput.files.length === 0) return;
-        
-        document.getElementById('emptyState').classList.add('d-none');
-        document.getElementById('loadingState').classList.remove('d-none');
-        document.getElementById('dashboardContent').classList.add('d-none');
-        document.getElementById('mlStudioSection').classList.add('d-none');
-
-        const formData = new FormData();
-        formData.append("file", fileInput.files[0]);
-
-        try {
-            const res = await fetch(`${API_URL}/upload`, { method: "POST", body: formData });
-            const data = await res.json();
-            if(data.status === "success") {
-                currentRawFile = data.filename;
-                datasetColumns = data.all_columns || Object.keys(data.missing_values);
-                
-                document.getElementById('statRows').innerText = data.rows.toLocaleString();
-                document.getElementById('statCols').innerText = data.columns;
-                
-                const missing = Object.values(data.missing_values).reduce((a,b)=>a+b, 0);
-                document.getElementById('healthText').innerText = missing === 0 ? "Clean Data" : "Needs Cleaning";
-                document.getElementById('healthText').className = missing === 0 ? "fw-bold text-success" : "fw-bold text-warning";
-                document.getElementById('healthBadge').innerText = missing === 0 ? "Perfect" : `${missing} Issues`;
-
-                document.getElementById('loadingState').classList.add('d-none');
-                document.getElementById('dashboardContent').classList.remove('d-none');
-                document.getElementById('controlPanel').classList.remove('d-none');
-
-                renderCharts(data.missing_values, data.correlation_matrix, data.dtype_counts);
-                renderTable(data.preview_data);
-            } else { alert(data.message); }
-        } catch(e) { alert("Backend Error: " + e); }
-    }
-
-    async function processData() {
-        const mode = document.getElementById('cleanModeSelect').value;
-        const action = mode === 'manual' ? document.getElementById('manualAction').value : mode;
-        
-        document.getElementById('resultSection').classList.remove('d-none');
-        document.getElementById('mlStudioSection').classList.add('d-none');
-        const logArea = document.getElementById('logArea');
-        logArea.innerHTML = "Processing...";
-        
-        // Reset UI Colors
-        const header = document.getElementById('resultHeader');
-        const card = document.getElementById('resultCard');
-        const title = document.getElementById('resultTitle');
-        const icon = document.getElementById('resultIcon');
-        const btn = document.getElementById('downloadBtn');
-
-        // Set to Default (Success)
-        header.className = "bg-success-subtle p-3 px-4 border-bottom border-success-subtle d-flex justify-content-between align-items-center";
-        card.className = "card-modern p-0 border-success border-2 overflow-hidden";
-        title.className = "fw-bold text-success-emphasis mb-0";
-        title.innerText = "Cleaning Complete!";
-        icon.className = "bi bi-check-circle-fill text-success fs-4";
-        btn.className = "btn btn-success fw-bold px-4 shadow-sm rounded-pill";
-
-        const formData = new FormData();
-        formData.append("filename", currentRawFile);
-        formData.append("action", action);
-        formData.append("username", username);
-
-        try {
-            const res = await fetch(`${API_URL}/clean`, { method: "POST", body: formData });
-            const data = await res.json();
-            if(data.status === "success") {
-                currentCleanFile = data.clean_filename;
-                
-                // 2. Handle AI Failure UI
-                if(data.ai_status === "failed") {
-                    header.className = "bg-warning-subtle p-3 px-4 border-bottom border-warning-subtle d-flex justify-content-between align-items-center";
-                    card.className = "card-modern p-0 border-warning border-2 overflow-hidden";
-                    title.className = "fw-bold text-warning-emphasis mb-0";
-                    title.innerText = "Cleaned (Fallback Mode)";
-                    icon.className = "bi bi-exclamation-triangle-fill text-warning fs-4";
-                    btn.className = "btn btn-warning fw-bold px-4 shadow-sm rounded-pill";
-                    alert(`⚠️ AI Error: ${data.ai_error}\nSwitched to Auto-Smart mode.`);
-                }
-
-                btn.onclick = () => downloadFile(`${API_URL}${data.download_url}`, currentCleanFile);
-                
-                logArea.innerHTML = "";
-                data.logs.forEach(l => {
-                    let color = l.includes("AI Failed") ? "text-danger fw-bold" : (l.includes("Switching") ? "text-warning" : "text-white");
-                    logArea.innerHTML += `<div class="${color}">> ${l}</div>`;
-                });
-                
-                setTimeout(() => { setupMLStudio(); if(user) loadHistory(); }, 1000);
-            }
-        } catch(e) { logArea.innerHTML = "Error: " + e; }
-    }
-
-    async function loadHistory() {
-        if(!user) return;
-        try {
-            const res = await fetch(`${API_URL}/history?username=${username}`);
-            const data = await res.json();
-            const list = document.getElementById('historyList');
-            list.innerHTML = "";
-            if(data.history) {
-                data.history.forEach(item => {
-                    const el = document.createElement('div');
-                    el.className = "p-2 border rounded bg-white small mb-1"; el.style.cursor = "pointer";
-                    el.onclick = () => downloadFile(`${API_URL}/download/${item.cleaned_filename}`, item.cleaned_filename);
-                    el.innerHTML = `${item.filename} <span class="text-muted">(${item.date})</span>`;
-                    list.appendChild(el);
-                });
-            }
-        } catch(e) {}
-    }
-
-    function setupMLStudio() {
-        document.getElementById('mlStudioSection').classList.remove('d-none');
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        const sel = document.getElementById('targetColumn');
-        sel.innerHTML = '<option value="" disabled selected>-- Select Target --</option><option value="NONE" class="fw-bold text-primary">No Target (Clustering)</option>';
-        datasetColumns.forEach(c => sel.innerHTML += `<option value="${c}">${c}</option>`);
-    }
-
-    async function trainModels() {
-        const target = document.getElementById('targetColumn').value;
-        if(!target) return alert("Select target first!");
-        
-        const btn = document.getElementById('trainBtn');
-        btn.innerHTML = "Training..."; btn.disabled = true;
-        document.getElementById('leaderboardWait').classList.add('d-none');
-        document.getElementById('leaderboardResults').classList.add('d-none');
-
-        const mode = document.getElementById('mlMode').value;
-        const config = { models: [], scaling: document.getElementById('mlScaling').value };
-        if(mode === 'manual') document.querySelectorAll('.ml-model-cb:checked').forEach(c => config.models.push(c.value));
-
-        const formData = new FormData();
-        formData.append("filename", currentCleanFile);
-        formData.append("target_column", target);
-        formData.append("mode", mode);
-        formData.append("manual_config", JSON.stringify(config));
-
-        try {
-            const res = await fetch(`${API_URL}/train_model`, { method: "POST", body: formData });
-            const data = await res.json();
-            if(data.status === "success") {
-                document.getElementById('taskTypeBadge').innerText = data.task_type;
-                const tbody = document.getElementById('leaderboardBody');
-                tbody.innerHTML = "";
-                data.leaderboard.forEach((r, i) => tbody.innerHTML += `<tr><td>#${i+1}</td><td>${r.model}</td><td class="fw-bold">${r.score}% (${r.metric})</td></tr>`);
-                document.getElementById('leaderboardResults').classList.remove('d-none');
-                document.getElementById('downloadModelBtn').onclick = () => downloadFile(`${API_URL}${data.download_url}`, 'best_model.pkl');
-            } else { alert(data.message); }
-        } catch(e) { alert(e); } 
-        finally { btn.innerHTML = "Train Models"; btn.disabled = false; }
-    }
-
-    function renderCharts(missing, corr, dtypes) {
-        if(Object.values(missing).some(v=>v>0)) Plotly.newPlot('missingChart', [{x:Object.keys(missing), y:Object.values(missing), type:'bar', marker:{color:'#ef4444'}}], {margin:{t:30,b:80}, paper_bgcolor:'rgba(0,0,0,0)', xaxis:{tickangle:-45}});
-        else document.getElementById('missingChart').innerHTML = "<div class='text-center py-5 text-success'>No Missing Values!</div>";
-
-        if(corr && corr.z) Plotly.newPlot('heatmapChart', [{z:corr.z, x:corr.x, y:corr.y, type:'heatmap'}], {margin:{t:20,b:50,l:50,r:20}, paper_bgcolor:'rgba(0,0,0,0)'});
-        else document.getElementById('heatmapChart').innerHTML = "<div class='text-center py-5'>Not enough numeric data</div>";
-
-        if(dtypes) Plotly.newPlot('dtypesChart', [{values:Object.values(dtypes), labels:Object.keys(dtypes), type:'pie', hole:.4}], {margin:{t:10,b:10}, height:300, paper_bgcolor:'rgba(0,0,0,0)'});
-    }
-
-    function renderTable(preview) {
-        if(!preview) return;
-        document.getElementById('tableHead').innerHTML = preview.columns.map(c=>`<th>${c}</th>`).join('');
-        document.getElementById('tableBody').innerHTML = preview.data.map(r=>`<tr>${r.map(c=>`<td>${c||'-'}</td>`).join('')}</tr>`).join('');
-    }
-
-    function copyPythonCode() { navigator.clipboard.writeText(document.getElementById('pythonCodeSnippet').innerText).then(()=>alert("Copied!")); }
-</script>
+    <!-- ✅ เรียกใช้ไฟล์ JavaScript หลักของเรา -->
+    <script src="script.js"></script>
 </body>
+
 </html>
