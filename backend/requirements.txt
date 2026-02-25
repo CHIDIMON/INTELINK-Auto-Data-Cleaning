@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pandas
+numpy
+mysql-connector-python
+pydantic
+passlib[bcrypt]
+google-generativeai
+scikit-learn
+joblib
