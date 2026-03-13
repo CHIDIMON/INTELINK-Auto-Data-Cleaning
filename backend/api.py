@@ -12,7 +12,9 @@ import numpy as np
 import shutil
 import os
 import json
-import mysql.connector
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
+from datetime import datetime
 from pydantic import BaseModel
 from passlib.context import CryptContext
 import google.generativeai as genai
@@ -21,7 +23,7 @@ import joblib
 
 # ✅ IMPORT เพิ่มสำหรับ Clustering และ Supervised Models ใหม่
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score, accuracy_score, r2_score, precision_score, recall_score
+from sklearn.metrics import silhouette_score, accuracy_score, r2_score, precision_score, recall_score, mean_absolute_error, mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
@@ -45,6 +47,26 @@ app.add_middleware(
 )
 
 # ==========================================
+# ⚙️ MONGODB CONNECT
+# ==========================================
+MONGO_URI = "mongodb+srv://gatunyus_db_user:qtJbLfftWqnA13Gx@intelink.w5cucyl.mongodb.net/?appName=Intelink"
+try:
+    # เชื่อมต่อ MongoDB
+    client = MongoClient(MONGO_URI, server_api=ServerApi('1'))
+    client.admin.command('ping') # เช็คว่าต่อติดไหม
+    print("✅ Successfully connected to MongoDB!")
+    
+    # เลือกชื่อ Database
+    db = client['intelink'] 
+    
+    # สร้าง Collection (เปรียบเสมือน Table ใน SQL)
+    users_collection = db['users']
+    history_collection = db['history']
+    
+except Exception as e:
+    print(f"❌ MongoDB Connection Error: {e}")
+
+# ==========================================
 # ⚙️ CONFIGURATION
 # ==========================================
 TEMP_DIR = "temp_files"
@@ -52,22 +74,14 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
-db_config = {
-    "host": "127.0.0.1",
-    "user": "root",
-    "password": "",          
-    "database": "smart_cleaner_ai",
-    "port": 3306             
-}
-
 ADMIN_SECRET_KEY = "MY_SECRET_1234"
 
 # 🔴 ใส่ Gemini Key ของคุณที่นี่ (ต้องเป็น KEY ใหม่เท่านั้น)
-GEMINI_API_KEY = "GEMINI_API_KEY" 
+GEMINI_API_KEY = "YOUR_GEMINI_KEY" 
 genai.configure(api_key=GEMINI_API_KEY)
 
 # ==========================================
-# 🧠 AI LOGIC (FIXED MODEL NAME)
+# 🧠 AI LOGIC
 # ==========================================
 def ask_gemini_strategy(df):
     if "YOUR_GEMINI_KEY" in GEMINI_API_KEY or "YOUR_NEW_GEMINI_KEY" in GEMINI_API_KEY:
@@ -84,7 +98,7 @@ def ask_gemini_strategy(df):
         prompt = """
         Analyze this dataset and return a JSON cleaning strategy.
         CRITICAL INSTRUCTIONS:
-        1. "standardize_text": List categorical columns where values have inconsistent casing (e.g. "Fiction" vs "FICTION").
+        1. "standardize_text": List categorical columns where values have inconsistent casing.
         2. "fill_unknown": List STRING/OBJECT columns that have missing values.
         3. "fill_mean": List NUMERIC columns that have missing values.
         4. "remove_outliers": List NUMERIC columns that likely have outliers.
@@ -94,11 +108,9 @@ def ask_gemini_strategy(df):
         { "standardize_text": [], "fill_unknown": [], "fill_mean": [], "remove_outliers": [], "extract_numbers": [], "drop_duplicates": true }
         """
         
-        # ✅ แก้ไข: ใช้ gemini-1.5-flash (ตัวมาตรฐานปัจจุบัน)
         print("👉 Calling gemini-2.5-flash...")
         model = genai.GenerativeModel('gemini-2.5-flash') 
         response = model.generate_content("\n".join(buffer) + "\n" + prompt)
-        
         cleaned_text = response.text.replace("```json", "").replace("```", "").strip()
         if "{" in cleaned_text:
             start = cleaned_text.find("{")
@@ -112,7 +124,7 @@ def ask_gemini_strategy(df):
         return None, str(e)
 
 # ==========================================
-# 📝 MODELS & AUTH
+# 📝 MODELS & AUTH (แก้ไขให้ชื่อตรงกันแล้ว)
 # ==========================================
 class RegisterModel(BaseModel):
     username: str
@@ -125,58 +137,50 @@ class LoginModel(BaseModel):
     password: str
 
 @app.post("/register")
-async def register_user(user: RegisterModel):
-    conn = None; cursor = None
-    try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id FROM users WHERE email = %s", (user.email,))
-        if cursor.fetchone(): return JSONResponse(status_code=400, content={"message": "Email already exists"})
-        role = "user"; plan = "free"
-        if user.admin_key == ADMIN_SECRET_KEY: role = "admin"; plan = "pro"
-        hashed = pwd_context.hash(user.password)
-        cursor.execute("INSERT INTO users (username, email, password_hash, role, plan) VALUES (%s, %s, %s, %s, %s)", (user.username, user.email, hashed, role, plan))
-        conn.commit()
-        return {"status": "success", "message": f"User created as {role.upper()}"}
-    except Exception as e: return JSONResponse(status_code=500, content={"message": str(e)})
-    finally: 
-        if cursor: cursor.close()
-        if conn: conn.close()
+async def register(user: RegisterModel): # ✅ แก้จาก UserRegister เป็น RegisterModel
+    existing_user = users_collection.find_one({"$or": [{"email": user.email}, {"username": user.username}]})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email or Username already exists")
+
+    hashed_password = pwd_context.hash(user.password)
+    plan = "pro" if user.admin_key == ADMIN_SECRET_KEY else "free"
+
+    new_user = {
+        "username": user.username,
+        "email": user.email,
+        "password": hashed_password,
+        "plan": plan,
+        "created_at": datetime.now()
+    }
+    users_collection.insert_one(new_user)
+    return {"status": "success", "message": "User created"}
 
 @app.post("/login")
-async def login_user(user: LoginModel):
-    conn = None; cursor = None
-    try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM users WHERE email = %s", (user.email,))
-        db_user = cursor.fetchone()
-        if not db_user or not pwd_context.verify(user.password, db_user['password_hash']):
-            return JSONResponse(status_code=400, content={"message": "Invalid credentials"})
-        cursor.execute("UPDATE users SET last_login = NOW() WHERE id = %s", (db_user['id'],))
-        conn.commit()
-        return {"status": "success", "username": db_user['username'], "role": db_user['role'], "plan": db_user['plan'], "token": "demo-token"}
-    except Exception as e: return JSONResponse(status_code=500, content={"message": str(e)})
-    finally: 
-        if cursor: cursor.close()
-        if conn: conn.close()
+async def login(req: LoginModel): # ✅ แก้จาก LoginRequest เป็น LoginModel
+    user = users_collection.find_one({"email": req.email})
+    if not user or not pwd_context.verify(req.password, user["password"]):
+        raise HTTPException(status_code=400, detail="Invalid email or password")
 
+    return {
+        "status": "success", 
+        "username": user["username"], 
+        "plan": user.get("plan", "free")
+    }
+
+# ==========================================
+# 🗂️ FILE UPLOAD & HISTORY
+# ==========================================
 @app.get("/history")
 async def get_history(username: str):
-    conn = None; cursor = None
     try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-        user = cursor.fetchone()
-        if not user: return {"status": "error", "message": "User not found"}
-        cursor.execute("SELECT original_filename, cleaned_filename, created_at FROM file_history WHERE user_id = %s ORDER BY created_at DESC LIMIT 10", (user['id'],))
-        history = [{"filename": h['original_filename'], "cleaned_filename": h['cleaned_filename'], "date": h['created_at'].strftime("%Y-%m-%d %H:%M")} for h in cursor.fetchall()]
-        return {"status": "success", "history": history}
-    except Exception as e: return JSONResponse(status_code=500, content={"message": str(e)})
-    finally: 
-        if cursor: cursor.close()
-        if conn: conn.close()
+        histories = list(history_collection.find(
+            {"username": username}, 
+            {"_id": 0} 
+        ).sort("date", -1).limit(10)) 
+        
+        return {"status": "success", "history": histories}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 def sanitize_filename(filename: str) -> str:
     clean_name = re.sub(r'\s+', '_', filename)
@@ -191,8 +195,6 @@ async def upload_file(file: UploadFile = File(...)):
     with open(file_path, "wb") as buffer: shutil.copyfileobj(file.file, buffer)
     try:
         df = pd.read_csv(file_path)
-        
-        # ✅ Pre-clean: แปลงค่า "Nan", "null" ที่เป็น Text ให้เป็น NaN จริงๆ ก่อนส่งไปวิเคราะห์
         df.replace(['Nan', 'nan', 'Null', 'null', 'NAN', 'N/A', 'n/a'], np.nan, inplace=True)
 
         num_df = df.select_dtypes(include=['number'])
@@ -212,13 +214,12 @@ async def upload_file(file: UploadFile = File(...)):
     except Exception as e: return {"status": "error", "message": str(e)}
 
 # ==========================================
-# 🛠️ CLEANING LOGIC
+# 🛠️ CLEANING LOGIC (ลบ MySQL ทิ้งและแทนด้วย MongoDB)
 # ==========================================
 @app.post("/clean")
 async def clean_data(filename: str = Form(...), action: str = Form(...), username: str = Form(None)):
     file_path = os.path.join(TEMP_DIR, filename)
     
-    # Fallback: ถ้าหาไฟล์ไม่เจอ ให้ลอง sanitize ชื่อดู
     if not os.path.exists(file_path):
         fallback_name = sanitize_filename(filename)
         file_path = os.path.join(TEMP_DIR, fallback_name)
@@ -226,11 +227,9 @@ async def clean_data(filename: str = Form(...), action: str = Form(...), usernam
     try: df = pd.read_csv(file_path)
     except: return {"status": "error", "message": f"File not found: {filename}"}
 
-    # STEP 0: NORMALIZE
     df.replace(['Nan', 'nan', 'Null', 'null', 'NAN', 'N/A', 'n/a'], np.nan, inplace=True)
     logs = []
     
-    # ✅ HARD RULE: ลบแถวที่หายเยอะเกินไป (>2 ค่า) ทันที
     rows_before_drop = len(df)
     df.dropna(thresh=len(df.columns) - 2, inplace=True)
     if len(df) < rows_before_drop:
@@ -244,7 +243,6 @@ async def clean_data(filename: str = Form(...), action: str = Form(...), usernam
         if strategy: logs.append(f"✅ AI Decision Loaded.")
         else: logs.append(f"⚠️ AI Failed: {error_msg}. Fallback to Auto-Smart."); action = "auto_smart"
 
-    # --- EXECUTION ---
     if strategy:
         if strategy.get("drop_duplicates"):
             rows = len(df); df = df.drop_duplicates()
@@ -261,7 +259,6 @@ async def clean_data(filename: str = Form(...), action: str = Form(...), usernam
 
         for col in strategy.get("extract_numbers", []):
             if col in df.columns:
-                # ป้องกันไม่ให้ยุ่งกับ ID/Email
                 if any(x in col.lower() for x in ['email', 'id', 'date', 'name', 'phone']): continue
                 try:
                     df[col] = df[col].astype(str).str.replace(r'[^\d.-]', '', regex=True)
@@ -272,7 +269,6 @@ async def clean_data(filename: str = Form(...), action: str = Form(...), usernam
         for col in strategy.get("fill_unknown", []):
             if col in df.columns:
                 df[col] = df[col].fillna("Unknown")
-                # เผื่อมีสตริง "Nan" หลงเหลือจากการแปลง
                 df[col] = df[col].replace(['nan', 'Nan', 'NaN'], "Unknown")
                 logs.append(f"AI: Filled '{col}' with 'Unknown'")
 
@@ -288,7 +284,6 @@ async def clean_data(filename: str = Form(...), action: str = Form(...), usernam
                 Q1 = df[col].quantile(0.25); Q3 = df[col].quantile(0.75); IQR = Q3 - Q1
                 df = df[~((df[col] < (Q1 - 1.5 * IQR)) | (df[col] > (Q3 + 1.5 * IQR)))]
                 logs.append(f"AI: Removed outliers in '{col}'")
-
 
     elif action == "auto_smart":
         init_rows = len(df); df = df.drop_duplicates()
@@ -320,7 +315,6 @@ async def clean_data(filename: str = Form(...), action: str = Form(...), usernam
             lower = Q1 - 1.5 * IQR; upper = Q3 + 1.5 * IQR
             df[col] = df[col].clip(lower, upper); logs.append(f"✂️ Capped '{col}'")
 
-    # Save
     clean_filename = f"clean_{filename}"
     clean_path = os.path.join(TEMP_DIR, clean_filename)
     
@@ -331,20 +325,18 @@ async def clean_data(filename: str = Form(...), action: str = Form(...), usernam
 
     df.to_csv(clean_path, index=False)
 
+    # ✅ บันทึก History ลง MongoDB (แก้จาก MySQL)
     if username:
-        conn = None; cursor = None
         try:
-            conn = mysql.connector.connect(**db_config)
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-            user = cursor.fetchone()
-            if user:
-                cursor.execute("INSERT INTO file_history (user_id, original_filename, cleaned_filename, file_path) VALUES (%s, %s, %s, %s)", (user['id'], filename, clean_filename, file_path))
-                conn.commit()
-        except: pass
-        finally: 
-            if cursor: cursor.close()
-            if conn: conn.close()
+            history_doc = {
+                "username": username,
+                "filename": filename,
+                "cleaned_filename": clean_filename,
+                "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            history_collection.insert_one(history_doc)
+        except Exception as e: 
+            print(f"MongoDB History Error: {e}")
 
     return {"status": "success", "download_url": f"/download/{clean_filename}", "logs": logs, "clean_filename": clean_filename}
 
@@ -355,52 +347,29 @@ async def download_file(filename: str):
     return {"error": "File not found"}
 
 # ==========================================
-# 🤖 TRAIN MODEL (COMPLETE VERSION)
+# 🤖 TRAIN MODEL & PREDICT
 # ==========================================
 @app.post("/train_model")
 async def train_model(
     filename: str = Form(...), target_column: str = Form(...), mode: str = Form("auto"), manual_config: str = Form("{}")
 ):
-    from sklearn.model_selection import train_test_split
-    from sklearn.pipeline import Pipeline
-    from sklearn.compose import ColumnTransformer
-    from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder, LabelEncoder
-    from sklearn.impute import SimpleImputer
-    
-    # Imports for Models
-    from sklearn.linear_model import LogisticRegression, LinearRegression
-    from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-    from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingClassifier, GradientBoostingRegressor
-    from sklearn.svm import SVC, SVR
-    from sklearn.neural_network import MLPClassifier, MLPRegressor
-    from sklearn.naive_bayes import GaussianNB
-    
-    # Metrics
-    from sklearn.metrics import accuracy_score, r2_score, silhouette_score
-    import joblib
-
     file_path = os.path.join(TEMP_DIR, filename)
     if not os.path.exists(file_path):
         return {"status": "error", "message": f"Cleaned file not found: {filename}"}
     
     df = pd.read_csv(file_path)
-    
     is_unsupervised = (target_column == "NONE")
     
     if not is_unsupervised and target_column not in df.columns:
         return {"status": "error", "message": f"Target column '{target_column}' not found."}
     
-    # Prepare X, y
     if not is_unsupervised:
         df = df.dropna(subset=[target_column])
         X = df.drop(columns=[target_column])
         y = df[target_column]
     else:
-        X = df
-        y = None
+        X = df; y = None
     
-    # Determine Task Type
     task_type = ""
     if is_unsupervised:
         task_type = "Clustering"
@@ -412,7 +381,6 @@ async def train_model(
     else:
         task_type = "Regression"
             
-    # Config & Feature Engineering
     config = json.loads(manual_config)
     if mode == "manual" and "drop_columns" in config:
         X = X.drop(columns=[c for c in config["drop_columns"] if c in X.columns])
@@ -423,18 +391,11 @@ async def train_model(
     scaler = StandardScaler()
     if mode == "manual" and config.get("scaling") == "minmax": scaler = MinMaxScaler()
     
-    # Encoding Selection
     encoding_strategy = config.get("encoding", "onehot")
     if encoding_strategy == "ordinal":
-        cat_transformer = Pipeline(steps=[
-            ('imputer', SimpleImputer(strategy='most_frequent')),
-            ('ordinal', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1))
-        ])
+        cat_transformer = Pipeline(steps=[('imputer', SimpleImputer(strategy='most_frequent')), ('ordinal', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1))])
     else:
-        cat_transformer = Pipeline(steps=[
-            ('imputer', SimpleImputer(strategy='most_frequent')),
-            ('onehot', OneHotEncoder(handle_unknown='ignore'))
-        ])
+        cat_transformer = Pipeline(steps=[('imputer', SimpleImputer(strategy='most_frequent')), ('onehot', OneHotEncoder(handle_unknown='ignore'))])
 
     num_transformer = Pipeline(steps=[('imputer', SimpleImputer(strategy='mean')), ('scaler', scaler)])
     preprocessor = ColumnTransformer(transformers=[('num', num_transformer, numeric_features), ('cat', cat_transformer, categorical_features)])
@@ -442,52 +403,35 @@ async def train_model(
     models = {}
     metric_name = ""
 
-    # ✅ Define Models based on Task Type
     if task_type == "Classification":
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         models = {
-            "Logistic Regression": LogisticRegression(max_iter=1000),
-            "KNN Classifier": KNeighborsClassifier(),
-            "Decision Tree": DecisionTreeClassifier(random_state=42),
-            "Random Forest": RandomForestClassifier(random_state=42),
-            "Gradient Boosting": GradientBoostingClassifier(random_state=42),
-            "Naive Bayes": GaussianNB(),
-            "SVM (SVC)": SVC(),
-            "Neural Network (MLP)": MLPClassifier(max_iter=500, random_state=42)
+            "Logistic Regression": LogisticRegression(max_iter=1000), "KNN Classifier": KNeighborsClassifier(),
+            "Decision Tree": DecisionTreeClassifier(random_state=42), "Random Forest": RandomForestClassifier(random_state=42),
+            "Gradient Boosting": GradientBoostingClassifier(random_state=42), "Naive Bayes": GaussianNB(),
+            "SVM (SVC)": SVC(), "Neural Network (MLP)": MLPClassifier(max_iter=500, random_state=42)
         }
         metric_name = "Accuracy"
         
     elif task_type == "Regression":
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         models = {
-            "Linear Regression": LinearRegression(),
-            "KNN Regressor": KNeighborsRegressor(),
-            "Decision Tree": DecisionTreeRegressor(random_state=42),
-            "Random Forest": RandomForestRegressor(random_state=42),
-            "Gradient Boosting": GradientBoostingRegressor(random_state=42),
-            "SVM (SVR)": SVR(),
+            "Linear Regression": LinearRegression(), "KNN Regressor": KNeighborsRegressor(),
+            "Decision Tree": DecisionTreeRegressor(random_state=42), "Random Forest": RandomForestRegressor(random_state=42),
+            "Gradient Boosting": GradientBoostingRegressor(random_state=42), "SVM (SVR)": SVR(),
             "Neural Network (MLP)": MLPRegressor(max_iter=500, random_state=42)
         }
         metric_name = "R-Square"
         
     elif task_type == "Clustering":
         X_train = X 
-        models = {
-            "K-Means (k=3)": KMeans(n_clusters=3, random_state=42),
-            "K-Means (k=5)": KMeans(n_clusters=5, random_state=42)
-        }
+        models = {"K-Means (k=3)": KMeans(n_clusters=3, random_state=42), "K-Means (k=5)": KMeans(n_clusters=5, random_state=42)}
         metric_name = "Silhouette Score"
 
-    # Filter models if manual mode
     if mode == "manual" and "models" in config and len(config["models"]) > 0:
         selected = config["models"]
-        filtered_models = {}
-        for k, v in models.items():
-            # Check partial match (e.g. "KNN" matches "KNN Classifier")
-            if any(sel in k for sel in selected):
-                filtered_models[k] = v
-        if filtered_models:
-            models = filtered_models
+        filtered_models = {k: v for k, v in models.items() if any(sel in k for sel in selected)}
+        if filtered_models: models = filtered_models
 
     leaderboard = []
     best_score = -float('inf'); best_pipeline = None; best_model_name = ""
@@ -497,15 +441,10 @@ async def train_model(
             if task_type == "Clustering":
                 clf = Pipeline(steps=[('preprocessor', preprocessor), ('model', model)])
                 clf.fit(X_train)
-                # Silhouette Score needs raw X, labels
                 X_transformed = clf.named_steps['preprocessor'].transform(X_train)
                 labels = clf.named_steps['model'].labels_
-                if len(set(labels)) > 1:
-                    score = silhouette_score(X_transformed, labels)
-                else:
-                    score = 0
-                metrics = {"Silhouette": score}
-                metric = "Silhouette"
+                score = silhouette_score(X_transformed, labels) if len(set(labels)) > 1 else 0
+                metrics = {"Silhouette": score}; metric = "Silhouette"
             else:
                 clf = Pipeline(steps=[('preprocessor', preprocessor), ('model', model)])
                 clf.fit(X_train, y_train)
@@ -513,14 +452,15 @@ async def train_model(
                 if task_type == "Classification":
                     score = accuracy_score(y_test, y_pred)
                     metrics = {
-                        "Accuracy": round(score*100, 2),
-                        "Precision": round(precision_score(y_test, y_pred, average='weighted', zero_division=0)*100, 2),
+                        "Accuracy": round(score*100, 2), "Precision": round(precision_score(y_test, y_pred, average='weighted', zero_division=0)*100, 2),
                         "Recall": round(recall_score(y_test, y_pred, average='weighted', zero_division=0)*100, 2)
                     }
                     metric = "Accuracy"
                 else:
                     score = r2_score(y_test, y_pred)
-                    metrics = {"R-Square": round(score*100, 2)}
+                    metrics = {
+                        "R-Square": round(score*100, 2), "MAE": round(mean_absolute_error(y_test, y_pred), 2), "RMSE": round(np.sqrt(mean_squared_error(y_test, y_pred)), 2)
+                    }
                     metric = "R-Square"
 
             leaderboard.append({"model": name, "score": round(score*100, 2), "metrics": metrics, "metric": metric})
@@ -553,25 +493,20 @@ async def predict_from_model(model_file: UploadFile = File(...), data_file: Uplo
         model = joblib.load(m_path)
         df = pd.read_csv(d_path)
         
-        # 1. พยากรณ์ผล
         predictions = model.predict(df)
         df['Predicted_Result'] = predictions
         
-        # 2. บันทึกไฟล์ที่พยากรณ์แล้ว
         res_name = f"pred_{data_file.filename}"
         df.to_csv(os.path.join(TEMP_DIR, res_name), index=False)
         
-        # 3. 📊 สรุปข้อมูลสำหรับทำ Dashboard (ใหม่)
         pred_series = pd.Series(predictions)
         summary = {}
-        # เช็คว่าเป็น Classification หรือ Regression
         is_classification = pred_series.dtype == 'object' or pred_series.nunique() <= 15
         
         if is_classification:
             counts = pred_series.value_counts().to_dict()
             summary['type'] = 'classification'
             summary['distribution'] = {str(k): int(v) for k, v in counts.items()}
-            # หาค่าที่เยอะที่สุด (Majority Class)
             summary['insight_label'] = "Majority Class"
             summary['insight_value'] = str(pred_series.mode()[0])
         else:
@@ -580,24 +515,17 @@ async def predict_from_model(model_file: UploadFile = File(...), data_file: Uplo
             summary['insight_label'] = "Average Value"
             summary['insight_value'] = f"{pred_series.mean():.2f}"
 
-        # ประเมินคุณภาพข้อมูล (เปอร์เซ็นต์ที่ไม่มีค่าว่าง)
-        missing_count = df.isnull().sum().sum()
-        total_cells = df.size
-        data_quality_match = round(100 - ((missing_count / total_cells) * 100), 2) if total_cells > 0 else 100
-        summary['data_quality'] = data_quality_match
-
-        # 4. แปลง NaN ให้เป็น None สำหรับ JSON (แก้บั๊ก 500)
+        missing_count = df.isnull().sum().sum(); total_cells = df.size
+        summary['data_quality'] = round(100 - ((missing_count / total_cells) * 100), 2) if total_cells > 0 else 100
         preview_data = df.head().replace({np.nan: None}).to_dict(orient='split')
         
-        return {
-            "status": "success", 
-            "download_url": f"/download/{res_name}", 
-            "preview": preview_data,
-            "summary": summary,
-            "total_rows": len(df)
-        }
+        return { "status": "success", "download_url": f"/download/{res_name}", "preview": preview_data, "summary": summary, "total_rows": len(df) }
+    except KeyError as ke: return {"status": "error", "message": f"ไม่พบข้อมูลคอลัมน์ {str(ke)} ในไฟล์ที่อัปโหลด"}
+    except ValueError as ve:
+        if "feature names" in str(ve).lower() or "number of features" in str(ve).lower(): return {"status": "error", "message": "จำนวนคอลัมน์ไม่ตรงกับตอนที่ใช้เทรนโมเดล"}
+        return {"status": "error", "message": str(ve)}
     except Exception as e: return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
-    print("🚀 API Server (Filename Sanitized & Fixed Logic) Started on Port 8000")
+    print("🚀 API Server with MongoDB Started on Port 8000")
     uvicorn.run(app, host="127.0.0.1", port=8000)

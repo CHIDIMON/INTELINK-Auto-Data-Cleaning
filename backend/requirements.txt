@@ -1,11 +1,20 @@
+# Web Framework
 fastapi
 uvicorn[standard]
 python-multipart
-pandas
-numpy
-mysql-connector-python
+
+# Database (MongoDB)
+pymongo
+dnspython
+certifi
+
+# Security
 pydantic
 passlib[bcrypt]
+
+# AI & Data Science
 google-generativeai
+pandas
+numpy
 scikit-learn
 joblib

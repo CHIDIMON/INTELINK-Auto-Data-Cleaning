@@ -1,20 +1,16 @@
 // ==========================================
 // 1. CONFIGURATION & STATE
 // ==========================================
-const NGROK_URL = "";
+const API_BASE_URL = "http://127.0.0.1:8000"; // ⚠️ เปลี่ยนเป็น URL ของ Server จริงเวลา Deploy
 
 function getApiUrl() {
-    let url = NGROK_URL.trim();
-    if (url === "" || url.includes("your-ngrok-url")) {
-        return `http://127.0.0.1:8000`; // บังคับใช้ 127.0.0.1 เสมอเพื่อเลี่ยงปัญหา CORS กับ localhost
-    }
-    return url.endsWith('/') ? url.slice(0, -1) : url;
+    return API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
 }
 
 // ==========================================
-// ⏳ ระบบเช็ค SESSION TIMEOUT (3 ชั่วโมง)
+// ⏳ SESSION TIMEOUT SYSTEM (3 Hours)
 // ==========================================
-const SESSION_LIMIT_MS = 3 * 60 * 60 * 1000; // 3 ชั่วโมง (หน่วยเป็นมิลลิวินาที)
+const SESSION_LIMIT_MS = 3 * 60 * 60 * 1000;
 let loginTimestamp = localStorage.getItem('login_timestamp');
 
 if (loginTimestamp) {
@@ -25,13 +21,13 @@ if (loginTimestamp) {
         localStorage.removeItem('login_timestamp');
 
         if (!window.location.pathname.endsWith('login.html')) {
-            alert("เซสชันของคุณหมดอายุแล้ว (เกิน 3 ชั่วโมง) กรุณาล็อกอินใหม่เพื่อความปลอดภัย");
+            alert("เซสชันหมดอายุแล้ว กรุณาล็อกอินใหม่");
             window.location.href = "login.html";
         }
     }
 }
 
-// เช็คสถานะการล็อกอินจาก LocalStorage ปัจจุบัน
+// Global States
 let currentUser = localStorage.getItem('username') || '';
 let userPlan = localStorage.getItem('plan') || 'free';
 let isLoggedIn = (currentUser !== '' && currentUser !== 'Guest');
@@ -45,22 +41,19 @@ let datasetColumns = [];
 let globalHeaders = [];
 
 // ==========================================
-// 2. PAGE ROUTER (รันโค้ดตามหน้าเว็บที่เปิด)
+// 2. PAGE ROUTER
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
-    const currentPage = document.body.dataset.page;
-    updateUIBasedOnAuth(); // อัปเดตเมนูซ้ายมือทุกหน้า
+    const currentPage = document.body ? document.body.dataset.page : "";
+    updateUIBasedOnAuth();
 
-    // รันโค้ดเฉพาะหน้า
     if (currentPage === "index") {
         initIndexPage();
-    } else if (currentPage === "predict") {
-        // initPredictPage(); (ถ้ามีฟังก์ชันเริ่มต้นตอนเปิดหน้า Predict)
     }
 });
 
 // ==========================================
-// 3. GLOBAL FUNCTIONS (ใช้ได้ทุกหน้า)
+// 3. GLOBAL FUNCTIONS
 // ==========================================
 function updateUIBasedOnAuth() {
     const guestView = document.getElementById('authGuest');
@@ -110,17 +103,21 @@ async function downloadFile(url, filename) {
     try {
         const response = await fetch(url);
         if (!response.ok) throw new Error("Download failed");
+
         const blob = await response.blob();
         const downloadUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
+
         a.href = downloadUrl;
         a.download = filename;
         document.body.appendChild(a);
         a.click();
+
         window.URL.revokeObjectURL(downloadUrl);
         document.body.removeChild(a);
     } catch (err) {
-        alert("Download Error: " + err.message);
+        console.error("Download Error:", err);
+        alert("เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์");
     }
 }
 
@@ -163,7 +160,10 @@ async function handleLogin(e) {
 
             btn.innerHTML = '<div class="d-flex align-items-center justify-content-center w-100"><i class="bi bi-check-lg me-2"></i>Success!</div>';
             btn.classList.replace('btn-login', 'btn-success');
-            setTimeout(() => { window.location.href = "index.html"; }, 800);
+
+            setTimeout(() => {
+                window.location.href = "index.html";
+            }, 800);
         } else {
             alert("Login Failed: " + data.message);
             btn.innerHTML = originalText;
@@ -226,8 +226,11 @@ function initIndexPage() {
         cleanSelect.addEventListener('change', (e) => {
             const manualOpts = document.getElementById('manualOptions');
             if (manualOpts) {
-                if (e.target.value === 'manual') manualOpts.classList.remove('d-none');
-                else manualOpts.classList.add('d-none');
+                if (e.target.value === 'manual') {
+                    manualOpts.classList.remove('d-none');
+                } else {
+                    manualOpts.classList.add('d-none');
+                }
             }
         });
     }
@@ -237,8 +240,11 @@ function initIndexPage() {
         mlSelect.addEventListener('change', (e) => {
             const manualOpts = document.getElementById('mlManualOptions');
             if (manualOpts) {
-                if (e.target.value === 'manual') manualOpts.classList.remove('d-none');
-                else manualOpts.classList.add('d-none');
+                if (e.target.value === 'manual') {
+                    manualOpts.classList.remove('d-none');
+                } else {
+                    manualOpts.classList.add('d-none');
+                }
             }
         });
     }
@@ -249,6 +255,7 @@ async function loadHistory() {
     if (!list) return;
 
     list.innerHTML = '<div class="text-center text-muted small py-2"><span class="spinner-border spinner-border-sm"></span> Loading...</div>';
+
     try {
         const res = await fetch(`${getApiUrl()}/history?username=${currentUser}`);
         const data = await res.json();
@@ -318,6 +325,7 @@ async function uploadFile() {
             const totalMissing = Object.values(data.missing_values).reduce((a, b) => a + b, 0);
             const healthBadge = document.getElementById('healthBadge');
             const healthText = document.getElementById('healthText');
+
             if (healthBadge && healthText) {
                 if (totalMissing === 0) {
                     healthBadge.className = "badge bg-success rounded-pill px-3 py-2";
@@ -340,8 +348,14 @@ async function uploadFile() {
             if (data.dtype_counts) renderDtypesChart(data.dtype_counts);
             if (data.preview_data) renderPreviewTable(data.preview_data);
 
-        } else { alert("Upload Failed: " + data.message); resetUI(); }
-    } catch (err) { alert("Error: ไม่สามารถติดต่อ Backend ได้ กรุณาเช็คว่ารัน Python (main.py) หรือยัง"); resetUI(); }
+        } else {
+            alert("Upload Failed: " + data.message);
+            resetUI();
+        }
+    } catch (err) {
+        alert("Error: ไม่สามารถติดต่อ Backend ได้ กรุณาเช็คว่ารัน Python (api.py) หรือยัง");
+        resetUI();
+    }
 }
 
 async function processData() {
@@ -460,8 +474,13 @@ async function trainModels() {
         document.querySelectorAll('.ml-model-cb:checked').forEach(cb => config.models.push(cb.value));
         if (config.models.includes("KNN Regressor")) config.models.push("KNN Classifier");
         if (config.models.includes("Linear Regression")) config.models.push("Logistic Regression");
-        if (config.models.includes("SVM")) { config.models.push("SVM (SVR)"); config.models.push("SVM (SVC)"); }
-        if (config.models.includes("Neural Network (MLP)")) config.models.push("Neural Network (MLP)");
+        if (config.models.includes("SVM")) {
+            config.models.push("SVM (SVR)");
+            config.models.push("SVM (SVC)");
+        }
+        if (config.models.includes("Neural Network (MLP)")) {
+            config.models.push("Neural Network (MLP)");
+        }
     }
 
     const formData = new FormData();
@@ -479,24 +498,47 @@ async function trainModels() {
             if (taskTypeBadge) taskTypeBadge.innerText = data.task_type + " Task";
 
             const tbody = document.getElementById('leaderboardBody');
+            const thead = document.querySelector('#leaderboardResults thead tr');
+
+            // ✅ ปรับ Header ตารางให้ตรงกับ Task Type
+            if (thead) {
+                if (data.task_type === 'Classification') {
+                    thead.innerHTML = '<th>Rank</th><th class="text-start">Algorithm</th><th>Score</th><th class="small text-muted">Precision</th><th class="small text-muted">Recall</th><th>Action</th>';
+                } else if (data.task_type === 'Regression') {
+                    thead.innerHTML = '<th>Rank</th><th class="text-start">Algorithm</th><th>R-Square</th><th class="small text-muted">MAE</th><th class="small text-muted">RMSE</th><th>Action</th>';
+                } else {
+                    thead.innerHTML = '<th>Rank</th><th class="text-start">Algorithm</th><th>Score</th><th class="small text-muted">-</th><th class="small text-muted">-</th><th>Action</th>';
+                }
+            }
+
             if (tbody) {
                 tbody.innerHTML = "";
 
                 data.leaderboard.forEach((item, index) => {
                     let medal = index === 0 ? "🏆" : (index === 1 ? "🥈" : "🥉");
                     let rankClass = index === 0 ? "fw-bold text-success bg-success-subtle" : "";
-                    let precision = item.metrics.Precision ? item.metrics.Precision + "%" : "-";
-                    let recall = item.metrics.Recall ? item.metrics.Recall + "%" : "-";
+
+                    // ✅ ดึง Metric ตาม Task
+                    let col1 = data.task_type === 'Classification' ? (item.metrics.Precision ? item.metrics.Precision + "%" : "-") : (item.metrics.MAE || "-");
+                    let col2 = data.task_type === 'Classification' ? (item.metrics.Recall ? item.metrics.Recall + "%" : "-") : (item.metrics.RMSE || "-");
+
+                    // ✅ ดึง URL จาก Backend และจัดการชื่อไฟล์
+                    let downloadPath = item.download_url || data.download_url || `/download_model/model_${item.model.replace(/ /g, '_')}.pkl`;
+                    if (!downloadPath.startsWith('/')) {
+                        downloadPath = '/' + downloadPath;
+                    }
+                    let fullDownloadUrl = `${getApiUrl()}${downloadPath}`;
+                    let safeFilename = `model_${item.model.replace(/[^a-zA-Z0-9]/g, '_')}.pkl`;
 
                     tbody.innerHTML += `
                         <tr class="leaderboard-row ${rankClass}">
                             <td class="fw-bold">${medal} #${index + 1}</td>
                             <td class="text-start">${item.model}</td>
                             <td class="fw-bold fs-5">${item.score}%</td>
-                            <td class="text-muted small">${precision}</td>
-                            <td class="text-muted small">${recall}</td>
+                            <td class="text-muted small">${col1}</td>
+                            <td class="text-muted small">${col2}</td>
                             <td>
-                                <button onclick="downloadFile('${getApiUrl()}${item.download_url}', 'model_${item.model}.pkl')" class="btn btn-sm btn-outline-primary rounded-pill">
+                                <button onclick="downloadFile('${fullDownloadUrl}', '${safeFilename}')" class="btn btn-sm btn-outline-primary rounded-pill">
                                     <i class="bi bi-download"></i> .pkl
                                 </button>
                             </td>
@@ -520,12 +562,20 @@ async function trainModels() {
     }
 }
 
+// ================= CHARTS =================
 function renderCharts(missing, corr) {
     const missingChart = document.getElementById('missingChart');
     if (missingChart) {
-        const mX = Object.keys(missing); const mY = Object.values(missing);
+        const mX = Object.keys(missing);
+        const mY = Object.values(missing);
+
         if (mY.some(v => v > 0)) {
-            Plotly.newPlot('missingChart', [{ x: mX, y: mY, type: 'bar', marker: { color: '#ef4444' } }], { margin: { t: 30, l: 50, r: 30, b: 100 }, xaxis: { tickangle: -45, automargin: true }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)' }, { displayModeBar: false, responsive: true });
+            Plotly.newPlot('missingChart', [{ x: mX, y: mY, type: 'bar', marker: { color: '#ef4444' } }], {
+                margin: { t: 30, l: 50, r: 30, b: 100 },
+                xaxis: { tickangle: -45, automargin: true },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            }, { displayModeBar: false, responsive: true });
         } else {
             missingChart.innerHTML = "<div class='text-center text-muted py-5'>✅ No missing values</div>";
         }
@@ -534,7 +584,11 @@ function renderCharts(missing, corr) {
     const heatmapChart = document.getElementById('heatmapChart');
     if (heatmapChart) {
         if (corr) {
-            Plotly.newPlot('heatmapChart', [{ z: corr.z, x: corr.x, y: corr.y, type: 'heatmap', colorscale: 'Viridis' }], { margin: { t: 10, l: 50, r: 10, b: 50 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)' }, { displayModeBar: false, responsive: true });
+            Plotly.newPlot('heatmapChart', [{ z: corr.z, x: corr.x, y: corr.y, type: 'heatmap', colorscale: 'Viridis' }], {
+                margin: { t: 10, l: 50, r: 10, b: 50 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            }, { displayModeBar: false, responsive: true });
         } else {
             heatmapChart.innerHTML = "<div class='text-center text-muted py-5'>Not enough numeric data</div>";
         }
@@ -544,8 +598,22 @@ function renderCharts(missing, corr) {
 function renderDtypesChart(dtypes) {
     const dtypesChart = document.getElementById('dtypesChart');
     if (!dtypes || !dtypesChart) return;
-    const data = [{ values: Object.values(dtypes), labels: Object.keys(dtypes), type: 'pie', hole: .4, textinfo: "label+percent", marker: { colors: ['#6366f1', '#10b981', '#f59e0b', '#ef4444'] } }];
-    Plotly.newPlot('dtypesChart', data, { margin: { t: 0, l: 0, r: 0, b: 0 }, showlegend: true, height: 250, paper_bgcolor: 'rgba(0,0,0,0)' }, { displayModeBar: false });
+
+    const data = [{
+        values: Object.values(dtypes),
+        labels: Object.keys(dtypes),
+        type: 'pie',
+        hole: .4,
+        textinfo: "label+percent",
+        marker: { colors: ['#6366f1', '#10b981', '#f59e0b', '#ef4444'] }
+    }];
+
+    Plotly.newPlot('dtypesChart', data, {
+        margin: { t: 0, l: 0, r: 0, b: 0 },
+        showlegend: true,
+        height: 250,
+        paper_bgcolor: 'rgba(0,0,0,0)'
+    }, { displayModeBar: false });
 }
 
 function renderPreviewTable(preview) {
@@ -554,7 +622,12 @@ function renderPreviewTable(preview) {
     const tbody = document.getElementById('tableBody');
     if (!thead || !tbody) return;
 
-    let headHtml = ""; preview.columns.forEach(col => { headHtml += `<th scope="col" class="fw-bold text-secondary text-nowrap">${col}</th>`; }); thead.innerHTML = headHtml;
+    let headHtml = "";
+    preview.columns.forEach(col => {
+        headHtml += `<th scope="col" class="fw-bold text-secondary text-nowrap">${col}</th>`;
+    });
+    thead.innerHTML = headHtml;
+
     let bodyHtml = "";
     preview.data.forEach(row => {
         bodyHtml += "<tr>";
@@ -570,6 +643,7 @@ function renderPreviewTable(preview) {
 function resetUI() {
     const loadingState = document.getElementById('loadingState');
     const emptyState = document.getElementById('emptyState');
+
     if (loadingState) loadingState.classList.add('d-none');
     if (emptyState) emptyState.classList.remove('d-none');
 }
@@ -614,6 +688,7 @@ function prepareTargetSelection(file) {
 
         targetSelect.innerHTML = '<option value="" disabled selected>-- เลือกคอลัมน์ที่ต้องการ Predict (Y) --</option>';
         globalHeaders.forEach(header => {
+            ป
             targetSelect.innerHTML += `<option value="${header}">${header}</option>`;
         });
 
@@ -679,7 +754,6 @@ function renderPredictionChart(summary) {
     }
 }
 
-// ✅ ระบบหลักทนทานต่อการลบ HTML ทิ้ง
 async function executePrediction(modelFile, dataFile, btnId, isManual = false) {
     const btn = document.getElementById(btnId);
     let originalText = "Predicting...";
@@ -765,7 +839,12 @@ async function executePrediction(modelFile, dataFile, btnId, isManual = false) {
             if (resultSection) resultSection.scrollIntoView({ behavior: 'smooth' });
 
         } else {
-            alert("Error: " + result.message);
+            // ✅ ดักจับ Error แจ้งเตือนภาษาไทย (แก้ปัญหา Error: 123)
+            if (result.message && (result.message.includes("123") || !result.message.includes(" "))) {
+                alert("❌ Predict Error: ไม่พบข้อมูลคอลัมน์ '" + result.message + "'\n\n💡 สาเหตุ: ไฟล์ Data ที่อัปโหลด มีชื่อคอลัมน์ หรือ ข้อมูลไม่ตรงกับไฟล์ตอนที่ใช้เทรนโมเดลครับ โปรดตรวจสอบไฟล์ข้อมูลอีกครั้ง");
+            } else {
+                alert("❌ Predict Error: " + (result.message || "เกิดข้อผิดพลาด"));
+            }
         }
     } catch (err) {
         alert("Connection Error: " + err.message + "\n(เช็คว่าเปิด Terminal Python อยู่หรือไม่?)");
@@ -778,7 +857,6 @@ async function executePrediction(modelFile, dataFile, btnId, isManual = false) {
 }
 
 function predictBatch() {
-    // ลองหา ID สองแบบ เผื่อหน้า HTML คุณตั้ง ID ปุ่ม/ไฟล์ไม่เหมือนเดิม
     const modelInput = document.getElementById('modelFile');
     const dataInput = document.getElementById('dataFile');
 
@@ -786,8 +864,6 @@ function predictBatch() {
         return alert("Please upload both Model (.pkl) and Reference Data (.csv)");
     }
 
-    // สังเกตว่าในรูปของคุณ ปุ่มมีสีส้มๆ อาจจะตั้ง id="predictBtn" หรือ id อื่น
-    // ถ้าคุณไม่ได้ใส่ id ให้มัน ให้กำหนด ID "predictBtn" ที่ปุ่ม Run Prediction ในหน้า HTML ของคุณด้วยนะครับ
     executePrediction(modelInput.files[0], dataInput.files[0], 'predictBtn', false);
 }
 
