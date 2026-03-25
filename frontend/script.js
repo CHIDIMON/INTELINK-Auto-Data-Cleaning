@@ -1,7 +1,8 @@
 // ==========================================
 // 1. CONFIGURATION & STATE
 // ==========================================
-const API_BASE_URL = "http://127.0.0.1:8000"; // ⚠️ เปลี่ยนเป็น URL ของ Server จริงเวลา Deploy
+// const API_BASE_URL = "http://127.0.0.1:8000"; 
+const API_BASE_URL = "https://intermandibular-cohen-nontalkatively.ngrok-free.dev";
 
 function getApiUrl() {
     return API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
