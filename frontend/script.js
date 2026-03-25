@@ -102,8 +102,14 @@ function logout() {
 
 async function downloadFile(url, filename) {
     try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("Download failed");
+        // ✅ เพิ่ม Header 'ngrok-skip-browser-warning' เพื่อทะลุบล็อกของ Ngrok
+        const response = await fetch(url, {
+            headers: {
+                'ngrok-skip-browser-warning': 'true'
+            }
+        });
+        
+        if (!response.ok) throw new Error("Download failed with status: " + response.status);
 
         const blob = await response.blob();
         const downloadUrl = window.URL.createObjectURL(blob);
@@ -118,7 +124,7 @@ async function downloadFile(url, filename) {
         document.body.removeChild(a);
     } catch (err) {
         console.error("Download Error:", err);
-        alert("เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์");
+        alert("เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์: " + err.message);
     }
 }
 
